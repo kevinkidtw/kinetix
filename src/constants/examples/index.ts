@@ -1,12 +1,14 @@
 import CLASSIC_EXAMPLES from './classic';
 import DYNAMICS_EXAMPLES from './dynamics';
 import EM_EXAMPLES from './electromagnetism';
+import EM2_EXAMPLES from './electromagnetism2';
 import FOUNDATION_EXAMPLES from './foundations';
 import MECHANICS_EXAMPLES from './mechanics';
 import MECHANICS2_EXAMPLES from './mechanics2';
 import MODERN_EXAMPLES from './modern';
 import OPTICS_EXAMPLES from './optics';
 import THERMAL_EXAMPLES from './thermal';
+import THERMAL2_EXAMPLES from './thermal2';
 import WAVE_EXAMPLES from './waves';
 import type { ExampleDef } from './types';
 
@@ -22,7 +24,9 @@ const EXAMPLES: ExampleDef[] = [
   ...WAVE_EXAMPLES,
   ...OPTICS_EXAMPLES,
   ...THERMAL_EXAMPLES,
+  ...THERMAL2_EXAMPLES,
   ...EM_EXAMPLES,
+  ...EM2_EXAMPLES,
   ...MODERN_EXAMPLES,
 ];
 
