@@ -1,4 +1,4 @@
-import { customDraw, doubles, drawingPanel, slider } from './builders';
+import { C, customDraw, doubles, drawingPanel, readout, slider } from './builders';
 import type { ExampleDef } from './types';
 
 // ═════════════════════════════════════════════════════════════
@@ -57,6 +57,8 @@ $$ N_A = \frac{RT}{6\pi\eta r D} $$
 - 右上：均方位移 $\langle r^2\rangle$ 對時間（藍）與理論 $4Dt$（灰虛線），並顯示最小平方法擬合的 $D$。
 - 右下：所有粒子 $x$ 位移的直方圖與理論高斯分布。
 - 時間以真實秒計，建議把速度選單調到 4×。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -122,6 +124,8 @@ const brownian: ExampleDef = {
     ['rad', '0.5', '粒子半徑 r（μm）'],
     ['D', '0', '理論擴散係數（μm²/s）'],
     ['msd', '0', '均方位移 ⟨r²⟩（μm²）'],
+    ['Dfit', '0', '由 ⟨r²⟩ = 4Dt 擬合的擴散係數（μm²/s）'],
+    ['NA', '0', '由擬合 D 推得的亞佛加厥數（/mol）'],
     ['tau', '0', '計時用（無物理意義）'],
   ]),
   odePages: [{
@@ -136,7 +140,7 @@ var sig = Tk + '|' + eta + '|' + rad;
 if (!_v._bx || _v._sig !== sig) {
   _v._sig = sig;
   _v._bx = new Float64Array(N); _v._by = new Float64Array(N);
-  t = 0; _v._lt = 0; msd = 0;
+  t = 0; _v._lt = 0; msd = 0; Dfit = 0; NA = 0; _v._sxy = 0; _v._sxx = 0;
 }
 if (t > _v._lt) {
   var dtp = t - _v._lt; _v._lt = t;
@@ -149,6 +153,10 @@ if (t > _v._lt) {
     sum += _v._bx[i] * _v._bx[i] + _v._by[i] * _v._by[i];
   }
   msd = sum / N;
+  // 過原點的最小平方法：⟨r²⟩ = 4D t
+  _v._sxy += t * msd; _v._sxx += t * t;
+  Dfit = _v._sxy / _v._sxx / 4;
+  NA = 8.314 * Tk / (6 * Math.PI * eta * 1e-3 * rad * 1e-6 * Dfit * 1e-12);
 } else if (t < _v._lt) {
   _v._lt = t;
 }`,
@@ -159,15 +167,22 @@ if (t > _v._lt) {
     slider('bw-s-T', 'Tk', 273, 373, 1, '溫度 T (K)'),
     slider('bw-s-eta', 'eta', 0.3, 5, 0.05, '黏滯係數 η (mPa·s)'),
     slider('bw-s-r', 'rad', 0.1, 2, 0.05, '粒子半徑 r (μm)'),
+    readout('bw-r-msd', '均方位移 ⟨r²⟩', 'msd', { unit: 'μm²', digits: 2, color: C.blue, group: '量測' }),
+    readout('bw-r-rms', '方均根位移', 'Math.sqrt(msd)', { unit: 'μm', digits: 2, color: C.blue, group: '量測' }),
+    readout('bw-r-Dfit', '擬合 D', 'Dfit > 0 ? Dfit : "…"', { unit: 'μm²/s', digits: 4, color: C.blue, group: '量測' }),
+    readout('bw-r-D', '理論 D = kT/(6πηr)', 'D', { unit: 'μm²/s', digits: 4, color: C.muted, group: '理論' }),
+    readout('bw-r-err', 'D 的相對誤差', 'Dfit > 0 ? (Dfit - D) / D * 100 : "…"', { unit: '%', digits: 1, color: C.muted, group: '理論' }),
+    readout('bw-r-NA', '推得亞佛加厥數 Nₐ', 'NA > 0 ? NA : "…"', { unit: '/mol', color: C.teal, group: '佩蘭的方法' }),
+    readout('bw-r-NA0', 'Nₐ 公認值', '6.02214076e23', { unit: '/mol', color: C.muted, group: '佩蘭的方法' }),
     customDraw('bw-draw', '顯微鏡視野與統計圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var bx = vars._bx, by = vars._by, D = vars.D, t = vars.t;
 // ── 顯微鏡視野（左上）──
-var S0 = 300, cx = 8 + S0 / 2, cy = 8 + S0 / 2;
+var S0 = 300, cx = 8 + S0 / 2, cy = H / 2;
 var half = Math.max(6, 3.2 * Math.sqrt(4 * D * Math.max(t, 1)));
 var sc = (S0 / 2) / half;
 ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, S0 / 2, 0, 2 * Math.PI); ctx.clip();
-ctx.fillStyle = "#1F2A33"; ctx.fillRect(8, 8, S0, S0);
+ctx.fillStyle = "#1F2A33"; ctx.fillRect(cx - S0 / 2, cy - S0 / 2, S0, S0);
 ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 1;
 ctx.beginPath(); ctx.arc(cx, cy, Math.sqrt(4 * D * t) * sc, 0, 2 * Math.PI); ctx.stroke();
 var hl = ["#E9A23B", "#2A9D8F", "#D1495B"];
@@ -193,9 +208,6 @@ ctx.restore();
 ctx.strokeStyle = "#6B6F76"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, S0 / 2, 0, 2 * Math.PI); ctx.stroke();
 // ── MSD 圖（右上）──
 var hm = track("_bwM", [t, vars.msd], 3000);
-var sxy = 0, sxx = 0;
-hm.forEach(function (p) { sxy += p[0] * p[1]; sxx += p[0] * p[0]; });
-var Dfit = sxx > 0 ? sxy / sxx / 4 : NaN;
 var tm = Math.max(t, 5);
 var gp = miniPlot({ x: 320, y: 6, w: W - 326, h: 204 }, [
   { pts: [[0, 0], [tm, 4 * D * tm]], color: "#9AA0A6", dash: [5, 4], label: "理論 4Dt" },
@@ -213,15 +225,6 @@ var g2 = miniPlot({ x: 320, y: 216, w: W - 326, h: 198 }, [
 ], { title: "x 位移分布（粒子數）", xlabel: "x(μm)", xmin: -xr, xmax: xr, ymin: 0, ymax: hy });
 ctx.fillStyle = "rgba(47,111,176,0.45)";
 hist.forEach(function (c, i) { var x0 = g2.px(-xr + i * bw), x1 = g2.px(-xr + (i + 1) * bw); ctx.fillRect(x0 + 0.5, g2.py(c), x1 - x0 - 1, g2.py(0) - g2.py(c)); });
-// ── 讀數（左下）──
-var NA = isFinite(Dfit) && Dfit > 0 ? 8.314 * vars.Tk / (6 * Math.PI * vars.eta * 1e-3 * vars.rad * 1e-6 * Dfit * 1e-12) : NaN;
-infoBox(8, 316, [
-  "t = " + t.toFixed(1) + " s",
-  "理論 D = kT/(6πηr) = " + D.toFixed(4) + " μm²/s",
-  ["擬合 D = " + (isFinite(Dfit) ? Dfit.toFixed(4) : "…") + " μm²/s", "#2F6FB0"],
-  ["推得 NA = " + (isFinite(NA) ? NA.toExponential(3) : "…") + " /mol", "#2A9D8F"],
-  "（真值 6.022e+23 /mol）",
-], { font: "11px monospace", lh: 17, w: 300 });
 `),
   ],
 };
@@ -284,6 +287,8 @@ $$ T_i^{n+1} = T_i^n + \frac{\alpha\Delta t}{\Delta x^2}\left(T_{i+1}^n - 2T_i^n
 
 - 上方為棒的溫度色圖（紅熱藍冷）；左下為溫度分布 $T(x)$，虛線為穩態解；右下為棒中點溫度隨（物理）時間的變化。
 - 改變材料或邊界條件即重新開始；改變時間倍率不會重新開始。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -359,6 +364,7 @@ const heatconduction: ExampleDef = {
     ['alpha', '0', '熱擴散係數（m²/s）'],
     ['kc', '0', '熱導率（W/m·K）'],
     ['Tmid', '20', '中點溫度（°C）'],
+    ['qflux', '0', '左端熱流密度（W/m²）'],
     ['tau', '0', '計時用（無物理意義）'],
   ]),
   odePages: [{
@@ -394,7 +400,8 @@ if (t > _v._lt) {
 } else if (t < _v._lt) {
   _v._lt = t;
 }
-Tmid = _v._T[N / 2];`,
+Tmid = _v._T[N / 2];
+qflux = kc * (_v._T[0] - _v._T[1]) / (Lrod / N);`,
   }],
   initPages: [],
   viewElements: [
@@ -402,6 +409,13 @@ Tmid = _v._T[N / 2];`,
     slider('ht-s-m', 'mat', 1, 4, 1, '材料（1銅 2鋁 3鐵 4玻璃）'),
     slider('ht-s-sp', 'speed', 1, 2000, 1, '時間倍率'),
     slider('ht-s-bc', 'rightBC', 0, 1, 1, '右端（0冰水 1絕熱）'),
+    readout('ht-r-tp', '物理時間 t', 'tp', { unit: 's', digits: 1, color: C.ink, group: '量測' }),
+    readout('ht-r-mid', '中點溫度', 'Tmid', { unit: '°C', digits: 2, color: C.blue, group: '量測' }),
+    readout('ht-r-q', '左端熱流 q', 'qflux', { unit: 'W/m²', digits: 0, color: C.red, group: '量測' }),
+    readout('ht-r-a', '熱擴散係數 α', 'alpha', { unit: 'm²/s', color: C.amber, group: '材料與理論' }),
+    readout('ht-r-k', '熱導率 k', 'kc', { unit: 'W/(m·K)', digits: 1, color: C.amber, group: '材料與理論' }),
+    readout('ht-r-tau', '時間常數 τ₁', '(rightBC < 0.5 ? 1 : 4) * Lrod * Lrod / (Math.PI * Math.PI * alpha)', { unit: 's', digits: 1, color: C.muted, group: '材料與理論' }),
+    readout('ht-r-qss', '穩態熱流', 'rightBC < 0.5 ? kc * (Th - Tc) / Lrod : 0', { unit: 'W/m²', digits: 0, color: C.muted, group: '材料與理論' }),
     customDraw('ht-draw', '棒與溫度圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var T = vars._T, N = T ? T.length - 1 : 40, Th = vars.Th, Tc = vars.Tc, L = vars.Lrod;
@@ -442,18 +456,10 @@ miniPlot({ x: 6, y: 112, w: W / 2 - 9, h: 282 }, [
 var hm = track("_htM", [vars.tp, vars.Tmid], 3000);
 var tmax = Math.max(vars.tp, 10);
 var Tss = vars.rightBC < 0.5 ? (Th + Tc) / 2 : Th;
-miniPlot({ x: W / 2 + 3, y: 112, w: W / 2 - 9, h: 200 }, [
+miniPlot({ x: W / 2 + 3, y: 112, w: W / 2 - 9, h: 282 }, [
   { pts: [[0, Tss], [tmax, Tss]], color: "#9AA0A6", dash: [5, 4], label: "穩態值" },
   { pts: hm, color: "#2F6FB0", label: "T中點" },
 ], { title: "中點溫度 (°C)", xlabel: "t(s)", xmin: 0, xmax: tmax, ymin: lo, ymax: hi });
-var q = T ? vars.kc * (T[0] - T[1]) / (L / N) : 0;
-var tau1 = (vars.rightBC < 0.5 ? 1 : 4) * L * L / (Math.PI * Math.PI * vars.alpha);
-infoBox(W / 2 + 3, 318, [
-  "物理時間 t = " + vars.tp.toFixed(1) + " s",
-  "α = " + vars.alpha.toExponential(3) + " m²/s",
-  "τ1 = L²/(π²α)" + (vars.rightBC < 0.5 ? "" : "×4") + " = " + tau1.toFixed(1) + " s",
-  ["左端熱流 q = " + q.toFixed(0) + " W/m²", "#D1495B"],
-], { font: "11px monospace", lh: 16, w: W / 2 - 9 });
 `),
   ],
 };

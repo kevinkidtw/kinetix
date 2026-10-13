@@ -1,4 +1,4 @@
-import { button, customDraw, doubles, drawingPanel, slider } from './builders';
+import { button, C, customDraw, doubles, drawingPanel, readout, slider } from './builders';
 import type { ExampleDef } from './types';
 
 // ═════════════════════════════════════════════════════════════
@@ -61,6 +61,8 @@ $$ Q = \frac{m\omega_0}{b} \approx \frac{\omega_0}{\Delta\omega} $$
 - 左上：彈簧振子，紅色箭頭為驅動力。左下：位移 $x$ 與 $F/k$（力換算成等效位移）的時間圖。
 - 右上：理論共振曲線（灰線）與你記錄的點；右下：相位差曲線與目前實測相位。
 - 「實測振幅」每經過一個驅動週期更新一次。改變 ω 後請等待暫態消失（約 $3 \times 2m/b$）再記錄。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -154,6 +156,14 @@ _v._vp = v;`,
     drawingPanel('rs-dp', 620, 420, [0, 10, 0, 10]),
     slider('rs-s-w', 'wd', 0.2, 4, 0.02, '驅動角頻率 ω (rad/s)'),
     slider('rs-s-b', 'b', 0.05, 2, 0.05, '阻尼係數 b'),
+    readout('rs-r-w0', '自然頻率 ω₀', 'Math.sqrt(k / m)', { unit: 'rad/s', digits: 3, color: C.ink, group: '系統參數' }),
+    readout('rs-r-ratio', 'ω / ω₀', 'wd / Math.sqrt(k / m)', { digits: 3, color: C.ink, group: '系統參數' }),
+    readout('rs-r-Q', '品質因子 Q', 'Math.sqrt(k * m) / b', { digits: 1, color: C.ink, group: '系統參數' }),
+    readout('rs-r-tr', '暫態時間常數 2m/b', '2 * m / b', { unit: 's', digits: 1, color: C.muted, group: '系統參數' }),
+    readout('rs-r-A', '實測振幅 A', 'Ameas', { unit: 'm', digits: 3, color: C.blue, group: '振幅' }),
+    readout('rs-r-Ath', '理論振幅 A', '(F0 / m) / Math.sqrt(Math.pow(k / m - wd * wd, 2) + Math.pow(b * wd / m, 2))', { unit: 'm', digits: 3, color: C.muted, group: '振幅' }),
+    readout('rs-r-d', '實測相位差 δ', 'dMeas * 180 / Math.PI', { unit: '°', digits: 1, color: C.teal, group: '相位' }),
+    readout('rs-r-dth', '理論相位差 δ', 'Math.atan2(b * wd / m, k / m - wd * wd) * 180 / Math.PI', { unit: '°', digits: 1, color: C.muted, group: '相位' }),
     button('rs-b-rec', '記錄此點', '_v._pts = (_v._pts || []).concat([[wd, Ameas, dMeas]]);'),
     button('rs-b-clr', '清除紀錄', '_v._pts = [];'),
     customDraw('rs-draw', '共振實驗繪圖', String.raw`
@@ -176,21 +186,12 @@ ctx.fillRect(xp - 18, my - 18, 36, 36); ctx.strokeRect(xp - 18, my - 18, 36, 36)
 var F = F0 * Math.cos(wd * vars.t);
 arrow(xp, my - 28, xp + F * 40, my - 28, "#D1495B", 2.5);
 ctx.fillStyle = "#D1495B"; ctx.font = "11px sans-serif"; ctx.textAlign = "left"; ctx.fillText("F(t)", xp + F * 40 + 4, my - 32);
-var Q = m * w0 / b;
-infoBox(8, 150, [
-  "ω0 = " + w0.toFixed(3) + "   Q = " + Q.toFixed(1),
-  "ω/ω0 = " + (wd / w0).toFixed(3),
-  ["實測 A = " + vars.Ameas.toFixed(3) + " m", "#2F6FB0"],
-  ["理論 A = " + Ath(wd).toFixed(3) + " m", "#6B6F76"],
-  ["實測 δ = " + (vars.dMeas * 180 / Math.PI).toFixed(1) + "°  理論 " + (dth(wd) * 180 / Math.PI).toFixed(1) + "°", "#2A9D8F"],
-  "暫態時間常數 2m/b = " + (2 * m / b).toFixed(1) + " s",
-], { font: "11px monospace", lh: 15, w: 284 });
 // ── 左下：x(t) 與 F/k ──
 var hx = track("_rsx", [vars.t, vars.x, F / k], 1500);
 var t1 = Math.max(vars.t, 20), t0 = t1 - 20;
 var vis = hx.filter(function (p) { return p[0] >= t0; });
 var yl = Math.max(Apk, F0 / k) * 1.15;
-miniPlot({ x: 6, y: 262, w: LW - 6, h: 152 }, [
+miniPlot({ x: 6, y: 166, w: LW - 6, h: 248 }, [
   { pts: vis.map(function (p) { return [p[0], p[1]]; }), color: "#2F6FB0", label: "x" },
   { pts: vis.map(function (p) { return [p[0], p[2]]; }), color: "#D1495B", label: "F/k", width: 1.2 },
 ], { title: "位移與驅動力", xlabel: "t(s)", xmin: t0, xmax: t1, ymin: -yl, ymax: yl });
@@ -263,6 +264,8 @@ $$ x_1 = A\cos\frac{(\omega_2 - \omega_1)t}{2}\cos\frac{(\omega_2 + \omega_1)t}{
 | **反相模態** | $x_1 = 0.15$、$x_2 = -0.15$ |
 
 下方左圖為 $x_1$、$x_2$ 對時間；右圖為兩擺各自的能量 $E_i = \frac12 mv_i^2 + \frac12\frac{mg}{L}x_i^2$。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -343,6 +346,13 @@ const coupled: ExampleDef = {
   viewElements: [
     drawingPanel('cp-dp', 600, 440, [0, 10, 0, 10]),
     slider('cp-s-k', 'kc', 0.05, 3, 0.05, '耦合強度 κ (N/m)'),
+    readout('cp-r-w1', '同相 ω₁', 'Math.sqrt(g / Lc)', { unit: 'rad/s', digits: 4, color: C.blue, group: '正規模態' }),
+    readout('cp-r-w2', '反相 ω₂', 'Math.sqrt(g / Lc + 2 * kc / m)', { unit: 'rad/s', digits: 4, color: C.red, group: '正規模態' }),
+    readout('cp-r-T1', '同相週期 T₁', '2 * Math.PI / Math.sqrt(g / Lc)', { unit: 's', digits: 3, color: C.blue, group: '正規模態' }),
+    readout('cp-r-T2', '反相週期 T₂', '2 * Math.PI / Math.sqrt(g / Lc + 2 * kc / m)', { unit: 's', digits: 3, color: C.red, group: '正規模態' }),
+    readout('cp-r-tx', '能量完全轉移 π/(ω₂−ω₁)', 'Math.PI / (Math.sqrt(g / Lc + 2 * kc / m) - Math.sqrt(g / Lc))', { unit: 's', digits: 2, color: C.teal, group: '拍' }),
+    readout('cp-r-E1', '擺 1 能量 E₁', '0.5 * m * v1 * v1 + 0.5 * m * (g / Lc) * x1 * x1', { unit: 'J', digits: 4, color: C.blue, group: '拍' }),
+    readout('cp-r-E2', '擺 2 能量 E₂', '0.5 * m * v2 * v2 + 0.5 * m * (g / Lc) * x2 * x2', { unit: 'J', digits: 4, color: C.red, group: '拍' }),
     button('cp-b-beat', '只拉擺 1（拍）', 'x1 = 0.15; x2 = 0; v1 = 0; v2 = 0; t = 0;'),
     button('cp-b-in', '同相模態', 'x1 = 0.15; x2 = 0.15; v1 = 0; v2 = 0; t = 0;'),
     button('cp-b-out', '反相模態', 'x1 = 0.15; x2 = -0.15; v1 = 0; v2 = 0; t = 0;'),
@@ -375,13 +385,6 @@ bob(b2x, b2y, "#F9E3E6", "#D1495B", "2");
 ctx.fillStyle = "#6B6F76"; ctx.font = "10px sans-serif"; ctx.textAlign = "center";
 ctx.fillText("（水平位移放大 2.5 倍顯示）", cx, b1y + 34);
 var w1 = Math.sqrt(g / Lc), w2 = Math.sqrt(g / Lc + 2 * kc / m);
-infoBox(W - 8, 8, [
-  "同相 ω1 = " + w1.toFixed(4) + " rad/s",
-  "反相 ω2 = " + w2.toFixed(4) + " rad/s",
-  "T1 = " + (2 * Math.PI / w1).toFixed(3) + " s   T2 = " + (2 * Math.PI / w2).toFixed(3) + " s",
-  ["能量完全轉移 π/(ω2-ω1) = " + (Math.PI / (w2 - w1)).toFixed(2) + " s", "#2A9D8F"],
-  "t = " + vars.t.toFixed(2) + " s",
-], { right: true, font: "11px monospace", lh: 15 });
 // 歷史數據
 var E1 = 0.5 * m * vars.v1 * vars.v1 + 0.5 * m * (g / Lc) * vars.x1 * vars.x1;
 var E2 = 0.5 * m * vars.v2 * vars.v2 + 0.5 * m * (g / Lc) * vars.x2 * vars.x2;
@@ -452,6 +455,8 @@ $$ y_i^{n+1} = 2y_i^n - y_i^{n-1} + r^2\left(y_{i+1}^n - 2y_i^n + y_{i-1}^n\righ
 
 - 灰色陰影為最近約 1.5 秒的振幅包絡，可清楚看出波節與波腹。
 - 下方圖表的紅色虛線為理論共振頻率 $f_n$。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -572,6 +577,12 @@ if (t > _v._lt) {
     slider('sw-s-T', 'Ten', 0.1, 1.6, 0.05, '張力 T (N)'),
     button('sw-b-rec', '記錄此點', '_v._pts = (_v._pts || []).concat([[f, Amax]]);'),
     button('sw-b-clr', '清除紀錄', '_v._pts = [];'),
+    readout('sw-r-v', '波速 v = √(T/μ)', 'cw', { unit: 'm/s', digits: 3, color: C.blue, group: '弦的性質' }),
+    readout('sw-r-lam', '波長 λ = v/f', 'cw / f', { unit: 'm', digits: 3, color: C.blue, group: '弦的性質' }),
+    readout('sw-r-f1', '基頻 f₁ = v/2L', 'cw / (2 * Ls)', { unit: 'Hz', digits: 3, color: C.red, group: '弦的性質' }),
+    readout('sw-r-M', '掛重質量', 'Ten / 9.8 * 1000', { unit: 'g', digits: 1, color: C.amber, group: '弦的性質' }),
+    readout('sw-r-n', '2Lf / v（整數時共振）', '2 * Ls * f / cw', { digits: 2, color: C.teal, group: '共振' }),
+    readout('sw-r-A', '弦上最大振幅', 'Amax * 100', { unit: 'cm', digits: 2, color: C.teal, group: '共振' }),
     customDraw('sw-draw', '弦與共振圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var y = vars._y, env = vars._env, N = y ? y.length - 1 : 80;
@@ -607,12 +618,6 @@ if (y) {
   ctx.stroke();
 }
 ctx.fillStyle = "#2B2D31"; ctx.beginPath(); ctx.arc(X(N), cy, 3, 0, 2 * Math.PI); ctx.fill();
-// 讀數
-var fn = vars.f * 2 * Ls / cw;
-infoBox(x0, 6, [
-  "v = √(T/μ) = " + cw.toFixed(3) + " m/s   λ = v/f = " + (cw / vars.f).toFixed(3) + " m",
-  "2Lf/v = " + fn.toFixed(2) + "（整數時共振）   最大振幅 " + (vars.Amax * 100).toFixed(2) + " cm",
-], { font: "11px monospace", lh: 15 });
 ctx.fillStyle = "#6B6F76"; ctx.font = "10px sans-serif"; ctx.textAlign = "left";
 ctx.fillText("縱向放大顯示（滿刻度 ≈ " + (vars._swS * 100).toFixed(1) + " cm）", x0, cy + 104);
 // 共振紀錄圖
@@ -676,8 +681,10 @@ $$ \sin\alpha = \frac{v}{v_s} = \frac{1}{M} $$
 | **綠色觀察者** | 可用滑鼠拖曳到任意位置 |
 
 - 波源由左往右移動，到達右側後重新出發。
-- 觀察者旁顯示「實測頻率」：以最近兩個抵達的波前時間間隔計算；同時顯示公式預測值。
+- 「觀察者實測 f′」以最近兩個抵達觀察者的波前時間間隔計算，並與都卜勒公式的預測值並列在下方儀表板。
 - $M \gt 1$ 時，紅色虛線為理論馬赫錐。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -742,6 +749,8 @@ const doppler: ExampleDef = {
     ['xs', '-9', '波源位置'],
     ['xo', '6', '觀察者 x（可拖曳）'],
     ['yo', '0', '觀察者 y（可拖曳）'],
+    ['fHeard', '0', '觀察者實測頻率（最近兩個波前的時間間隔）'],
+    ['fForm', '0', '都卜勒公式預測頻率'],
   ]),
   odePages: [{
     id: 'dp-ode', name: '波源運動', method: 'Euler', increment: '0.01', comment: '',
@@ -756,13 +765,32 @@ while (t >= _v._ne) {
   _v._fr.push([xs - M * c * (t - _v._ne), _v._ne]);
   _v._ne += 1 / f0;
 }
-if (_v._fr.length > 80) _v._fr.splice(0, _v._fr.length - 80);`,
+if (_v._fr.length > 80) _v._fr.splice(0, _v._fr.length - 80);
+// 觀察者：最近兩個抵達的波前 → 實測頻率；最近一個波前的幾何 → 公式值
+var arr = [], best = null;
+for (var i = 0; i < _v._fr.length; i++) {
+  var w = _v._fr[i], ta = w[1] + Math.sqrt((xo - w[0]) * (xo - w[0]) + yo * yo) / c;
+  if (ta <= t) { arr.push(ta); if (!best || ta > best[0]) best = [ta, w[0]]; }
+}
+arr.sort(function (a, b) { return a - b; });
+fHeard = arr.length >= 2 ? 1 / Math.max(1e-6, arr[arr.length - 1] - arr[arr.length - 2]) : 0;
+fForm = 0;
+if (best) {
+  var ddx = xo - best[1], dd = Math.sqrt(ddx * ddx + yo * yo);
+  if (dd > 1e-6) fForm = f0 / (1 - M * ddx / dd);
+}`,
   }],
   initPages: [],
   viewElements: [
     drawingPanel('dp-dp', 600, 400, [-10, 10, -6.667, 6.667], true),
     slider('dp-s-M', 'M', 0, 2, 0.05, '馬赫數 M'),
     slider('dp-s-f', 'f0', 0.5, 2, 0.05, '發聲頻率 f₀'),
+    readout('dp-r-fh', '觀察者實測 f′', 'fHeard > 0 ? fHeard : "…"', { digits: 3, color: C.teal, group: '綠色觀察者' }),
+    readout('dp-r-ff', '都卜勒公式 f′', 'fForm > 0 ? fForm : "—"', { digits: 3, color: C.muted, group: '綠色觀察者' }),
+    readout('dp-r-lam0', '靜止波長 λ₀', 'c / f0', { digits: 3, color: C.ink, group: '波源' }),
+    readout('dp-r-ff1', '正前方 f′', 'M < 1 ? f0 / (1 - M) : "—"', { digits: 3, color: C.blue, group: '波源' }),
+    readout('dp-r-fb', '正後方 f′', 'f0 / (1 + M)', { digits: 3, color: C.red, group: '波源' }),
+    readout('dp-r-mach', '馬赫錐半角 α', 'M > 1 ? Math.asin(1 / M) * 180 / Math.PI : M === 1 ? "音障" : "無（次音速）"', { unit: '°', digits: 1, color: C.red, group: '波源' }),
     customDraw('dp-draw', '波前繪圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var fr = vars._fr || [], t = vars.t, c = vars.c, M = vars.M, f0 = vars.f0, xs = vars.xs;
@@ -788,29 +816,12 @@ if (M > 1) {
 ctx.fillStyle = "#E9A23B"; ctx.strokeStyle = "#B97A1E"; ctx.lineWidth = 1.5;
 ctx.beginPath(); ctx.arc(toPixX(xs), toPixY(0), 8, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
 if (M > 0) arrow(toPixX(xs) + 10, toPixY(0), toPixX(xs) + 10 + 18 * Math.min(M, 2), toPixY(0), "#B97A1E", 2);
-// 觀察者實測頻率：最近兩個抵達波前的時間差
-var xo = vars.xo, yo = vars.yo, arr = [];
-fr.forEach(function (w) { var ta = w[1] + Math.sqrt((xo - w[0]) * (xo - w[0]) + yo * yo) / c; if (ta <= t) arr.push(ta); });
-arr.sort(function (a, b) { return a - b; });
-var fm = arr.length >= 2 ? 1 / Math.max(1e-6, arr[arr.length - 1] - arr[arr.length - 2]) : NaN;
-// 理論值：使用「最近抵達的波前」發出時的幾何
-var ft = NaN;
-if (fr.length) {
-  var best = null;
-  fr.forEach(function (w) { var ta = w[1] + Math.sqrt((xo - w[0]) * (xo - w[0]) + yo * yo) / c; if (ta <= t && (!best || ta > best.ta)) best = { ta: ta, x: w[0] }; });
-  if (best) { var dx = xo - best.x, d = Math.sqrt(dx * dx + yo * yo); ft = d > 1e-6 ? f0 / (1 - M * dx / d) : NaN; }
-}
+var xo = vars.xo, yo = vars.yo, fm = vars.fHeard > 0 ? vars.fHeard : NaN, ft = vars.fForm;
 ctx.fillStyle = "#2A9D8F"; ctx.font = "bold 11px monospace"; ctx.textAlign = "left";
-var lx = Math.min(toPixX(xo) + 14, W - 150), ly = Math.max(toPixY(yo) - 12, 16);
+var lx = Math.min(Math.max(toPixX(xo) - 50, 4), W - 150), ly = toPixY(yo) > 60 ? toPixY(yo) - 30 : toPixY(yo) + 36;
 ctx.fillText("實測 f' = " + (isFinite(fm) ? fm.toFixed(3) : "…"), lx, ly);
 ctx.fillStyle = "#6B6F76"; ctx.font = "11px monospace";
 ctx.fillText("公式 f' = " + (isFinite(ft) && ft > 0 ? ft.toFixed(3) : "—"), lx, ly + 14);
-infoBox(8, 8, [
-  "波速 v = " + c + "   f0 = " + f0.toFixed(2) + "   λ0 = " + (c / f0).toFixed(2),
-  "前方 λ = (v−vs)/f0 = " + ((c - M * c) / f0).toFixed(2) + "   f' = " + (M < 1 ? (f0 / (1 - M)).toFixed(3) : "—"),
-  "後方 λ = (v+vs)/f0 = " + ((c + M * c) / f0).toFixed(2) + "   f' = " + (f0 / (1 + M)).toFixed(3),
-  (M > 1 ? ["馬赫錐半角 α = " + (Math.asin(1 / M) * 180 / Math.PI).toFixed(1) + "°", "#D1495B"] : (M === 1 ? ["M = 1：音障", "#D1495B"] : " ")),
-], { font: "11px monospace", lh: 15 });
 `),
     {
       id: 'dp-obs', type: 'Elements.Shape2D', name: '觀察者', parent: 'DrawingPanel1',
@@ -869,6 +880,8 @@ N 增加時，主極大位置不變但寬度 $\propto 1/N$，相鄰主極大之�
 
 - 上方為示意圖（不按比例），中間為屏幕上看到的條紋，下方為強度分布：實線為總強度，虛線為單縫繞射包絡。
 - 屏幕距離 D = 1 m，可在變數積木中修改。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -953,6 +966,11 @@ if (Ns > 1 && a > d) a = d;`,
     slider('ds-s-d', 'd', 0.05, 1, 0.01, '縫距 d (mm)'),
     slider('ds-s-a', 'a', 0.01, 0.2, 0.005, '縫寬 a (mm)'),
     slider('ds-s-N', 'Ns', 1, 8, 1, '狹縫數 N'),
+    readout('ds-r-dy', '條紋間距 λD/d', 'Ns > 1 ? lam * 1e-9 * D / (d * 1e-3) * 1000 : "—（單縫）"', { unit: 'mm', digits: 3, color: C.blue, group: '理論預測' }),
+    readout('ds-r-cw', '中央亮帶寬 2λD/a', '2 * lam * 1e-9 * D / (a * 1e-3) * 1000', { unit: 'mm', digits: 2, color: C.teal, group: '理論預測' }),
+    readout('ds-r-da', '縫距 / 縫寬 d/a', 'Ns > 1 ? d / a : "—"', { digits: 2, color: C.ink, group: '理論預測' }),
+    readout('ds-r-miss', '第一個缺級', 'Ns > 1 && Math.abs(d / a - Math.round(d / a)) < 1e-6 ? "m = ±" + Math.round(d / a) : "無（d/a 非整數）"', { color: C.red, group: '理論預測' }),
+    readout('ds-r-n', '中央亮帶內亮紋數', 'Ns > 1 ? 2 * Math.ceil(d / a - 1e-9) - 1 : "—"', { digits: 0, color: C.purple, group: '理論預測' }),
     customDraw('ds-draw', '干涉繞射繪圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var lam = vars.lam * 1e-9, d = vars.d * 1e-3, a = Math.min(vars.a, vars.Ns > 1 ? vars.d : 1e9) * 1e-3, N = Math.max(1, Math.round(vars.Ns)), D = vars.D;
@@ -1009,12 +1027,6 @@ miniPlot({ x: 6, y: 240, w: W - 12, h: 194 }, [
   { pts: Epts, color: "#9AA0A6", dash: [5, 4], label: "單縫包絡", width: 1.2 },
   { pts: Ipts, color: cs === "rgb(0,0,0)" ? "#2F6FB0" : cs, label: "總強度 I/I0" },
 ], { title: "屏幕上的強度分布", xlabel: "y(mm)", xmin: -Ymax * 1000, xmax: Ymax * 1000, ymin: 0, ymax: 1.08 });
-var dy = lam * D / d * 1000, cw = 2 * lam * D / a * 1000;
-infoBox(W - 10, 242 + 18, [
-  "條紋間距 λD/d = " + (N > 1 ? dy.toFixed(3) + " mm" : "—"),
-  "中央亮帶寬 2λD/a = " + cw.toFixed(2) + " mm",
-  "d/a = " + (N > 1 ? (d / a).toFixed(2) : "—"),
-], { right: true, font: "11px monospace", lh: 15 });
 `),
   ],
 };

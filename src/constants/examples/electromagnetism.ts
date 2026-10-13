@@ -1,4 +1,4 @@
-import { button, customDraw, doubles, drawingPanel, slider } from './builders';
+import { button, C, customDraw, doubles, drawingPanel, readout, slider } from './builders';
 import type { ExampleDef } from './types';
 import type { ViewElement } from '../../types/simulation';
 
@@ -69,7 +69,9 @@ $$ V_C = V_0 e^{-t/\tau}, \qquad I = -\frac{V_0}{R}e^{-t/\tau} $$
 
 - 上方為電路示意圖，電容極板上的電荷符號多寡代表 $V_C$；導線上的箭頭為電流方向。
 - 下方示波器：琥珀色 $V_s$、藍色 $V_C$、紅色 $V_R = IR$。
-- 右上角「實測 τ」為每次切換後 $V_C$ 完成 63.2% 變化所需的時間。
+- 儀表板中的「實測 τ」為每次切換後 $V_C$ 完成 63.2% 變化所需的時間。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -167,6 +169,14 @@ I = (Vs - Vc) / R;`,
     slider('rc-s-R', 'R', 1, 100, 1, '電阻 R (kΩ)'),
     slider('rc-s-C', 'C', 10, 470, 10, '電容 C (μF)'),
     slider('rc-s-T', 'Tsq', 1, 30, 0.5, '方波週期 T (s)'),
+    readout('rc-r-tau', '理論 τ = RC', 'tauRC', { unit: 's', digits: 3, color: C.muted, group: '時間常數' }),
+    readout('rc-r-t63', '實測 τ（63.2%）', 't63 > 0 ? t63 : "量測中…"', { unit: 's', digits: 3, color: C.blue, group: '時間常數' }),
+    readout('rc-r-ratio', '方波週期 / τ', 'Tsq / tauRC', { digits: 2, color: C.ink, group: '時間常數' }),
+    readout('rc-r-vs', '電源 Vs', 'Vs', { unit: 'V', digits: 2, color: C.amber, group: '即時量測' }),
+    readout('rc-r-vc', '電容電壓 Vc', 'Vc', { unit: 'V', digits: 3, color: C.blue, group: '即時量測' }),
+    readout('rc-r-vr', '電阻電壓 VR', 'Vs - Vc', { unit: 'V', digits: 3, color: C.red, group: '即時量測' }),
+    readout('rc-r-i', '電流 I', 'I', { unit: 'mA', digits: 4, color: C.red, group: '即時量測' }),
+    readout('rc-r-u', '電容儲能', '0.5 * C * 1e-6 * Vc * Vc * 1000', { unit: 'mJ', digits: 3, color: C.teal, group: '即時量測' }),
     customDraw('rc-draw', '電路與示波器', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var V0 = vars.V0, Vs = vars.Vs, Vc = vars.Vc, I = vars.I;
@@ -203,14 +213,19 @@ if (mag > 0.01) {
   arrow(200 + dir * 18, B - 14, 200 - dir * 18, B - 14, ic, wpx);
 }
 ctx.fillStyle = "#D1495B"; ctx.font = "12px monospace"; ctx.fillText("I = " + I.toFixed(3) + " mA", 160, B - 26);
-infoBox(W - 8, 12, [
-  "τ = RC = " + vars.tauRC.toFixed(3) + " s",
-  ["實測 τ = " + (vars.t63 ? vars.t63.toFixed(3) + " s" : "…"), "#2F6FB0"],
-  "T / τ = " + (vars.Tsq / vars.tauRC).toFixed(2),
-  "VR = IR = " + (Vs - Vc).toFixed(3) + " V",
-  "電容儲能 = " + (0.5 * vars.C * 1e-6 * Vc * Vc * 1000).toFixed(3) + " mJ",
-  "t = " + vars.t.toFixed(2) + " s",
-], { right: true, font: "11px monospace", lh: 16 });
+// 儀表：Vc 與電流（相對最大值）
+function meter(x, label, frac, color, text) {
+  var top = 40, hgt = 150, f = Math.max(-1, Math.min(1, frac));
+  ctx.strokeStyle = "#E5E1D8"; ctx.lineWidth = 1; ctx.strokeRect(x, top, 34, hgt);
+  ctx.fillStyle = color;
+  if (f >= 0) ctx.fillRect(x + 1, top + hgt * (1 - f), 32, hgt * f);
+  else ctx.fillRect(x + 1, top, 32, -hgt * f);
+  ctx.fillStyle = "#2B2D31"; ctx.font = "11px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(label, x + 17, top + hgt + 16);
+  ctx.font = "10px monospace"; ctx.fillStyle = "#6B6F76"; ctx.fillText(text, x + 17, top - 6);
+}
+meter(480, "Vc / V0", Vc / V0, "rgba(47,111,176,0.75)", (100 * Vc / V0).toFixed(0) + "%");
+meter(548, "|I| / I0", Math.abs(I) / (V0 / vars.R), "rgba(209,73,91,0.7)", (100 * Math.abs(I) / (V0 / vars.R)).toFixed(0) + "%");
 // ── 示波器 ──
 var h = track("_rcS", [vars.t, Vs, Vc, Vs - Vc], 5000);
 var win = 2 * vars.Tsq, t1 = Math.max(vars.t, win), t0 = t1 - win;
@@ -267,10 +282,12 @@ $$ \vec E = -\nabla V $$
 |---|---|
 | 拖曳電荷 | 三個電荷都可以用滑鼠拖動 |
 | 電荷滑桿 q₁、q₂、q₃ | −3 至 3；設為 0 即移除該電荷 |
-| 拖曳探針（十字） | 即時顯示該點的 V 與 E |
+| 拖曳探針（十字） | 下方儀表板即時顯示該點的 V 與 E |
 
 - 紅色等位線為正電位、藍色為負電位；灰色箭頭線為電力線。
 - 不需按播放，拖曳即可更新。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -334,15 +351,34 @@ const efield: ExampleDef = {
     ['q2', '-2', '電荷 2'], ['x2', '2', '電荷 2 x'], ['y2', '0', '電荷 2 y'],
     ['q3', '0', '電荷 3'], ['x3', '0', '電荷 3 x'], ['y3', '2.5', '電荷 3 y'],
     ['px', '0', '探針 x'], ['py', '-2.5', '探針 y'],
+    ['Vp', '0', '探針處電位'], ['Ex', '0', '探針處電場 x 分量'], ['Ey', '0', '探針處電場 y 分量'],
+    ['Emag', '0', '探針處電場大小'], ['Edir', '0', '探針處電場方向（度）'],
   ]),
   odePages: [],
-  constraintPages: [],
+  constraintPages: [{
+    id: 'ef-con', name: '探針量測（疊加原理）', comment: '拖曳電荷或探針時即時重算',
+    code: String.raw`var Q = [[q1, x1, y1], [q2, x2, y2], [q3, x3, y3]];
+Vp = 0; Ex = 0; Ey = 0;
+for (var i = 0; i < 3; i++) {
+  var dx = px - Q[i][1], dy = py - Q[i][2], r2 = dx * dx + dy * dy + 1e-6, r = Math.sqrt(r2);
+  Ex += Q[i][0] * dx / (r2 * r); Ey += Q[i][0] * dy / (r2 * r); Vp += Q[i][0] / r;
+}
+Emag = Math.sqrt(Ex * Ex + Ey * Ey);
+Edir = Math.atan2(Ey, Ex) * 180 / Math.PI;`,
+  }],
   initPages: [],
   viewElements: [
     drawingPanel('ef-dp', 600, 400, [-6, 6, -4, 4], true),
     slider('ef-s-q1', 'q1', -3, 3, 0.5, '電荷 q₁'),
     slider('ef-s-q2', 'q2', -3, 3, 0.5, '電荷 q₂'),
     slider('ef-s-q3', 'q3', -3, 3, 0.5, '電荷 q₃'),
+    readout('ef-r-p', '探針位置', '"(" + px.toFixed(2) + ", " + py.toFixed(2) + ")"', { color: C.ink, group: '探針（十字，可拖曳）' }),
+    readout('ef-r-V', '電位 V', 'Vp', { digits: 3, color: C.red, group: '探針（十字，可拖曳）' }),
+    readout('ef-r-E', '電場大小 |E|', 'Emag', { digits: 3, color: C.amber, group: '探針（十字，可拖曳）' }),
+    readout('ef-r-dir', '電場方向', 'Edir', { unit: '°', digits: 1, color: C.amber, group: '探針（十字，可拖曳）' }),
+    readout('ef-r-Ex', 'Eₓ', 'Ex', { digits: 3, color: C.muted, group: '分量' }),
+    readout('ef-r-Ey', 'E_y', 'Ey', { digits: 3, color: C.muted, group: '分量' }),
+    readout('ef-r-net', '總電荷 Σq', 'q1 + q2 + q3', { digits: 1, color: C.purple, group: '分量' }),
     customDraw('ef-draw', '電場繪圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var Q = [[vars.q1, vars.x1, vars.y1], [vars.q2, vars.x2, vars.y2], [vars.q3, vars.x3, vars.y3]];
@@ -423,12 +459,6 @@ var ppx = toPixX(vars.px), ppy = toPixY(vars.py);
 ctx.strokeStyle = "#2B2D31"; ctx.lineWidth = 1.5;
 ctx.beginPath(); ctx.moveTo(ppx - 8, ppy); ctx.lineTo(ppx + 8, ppy); ctx.moveTo(ppx, ppy - 8); ctx.lineTo(ppx, ppy + 8); ctx.stroke();
 if (Em > 1e-6) { var Lp = Math.min(70, 28 * Math.sqrt(Em)); arrow(ppx, ppy, ppx + Lp * pf[0] / Em, ppy - Lp * pf[1] / Em, "#E9A23B", 2.5); }
-infoBox(8, 8, [
-  "探針 (" + vars.px.toFixed(2) + ", " + vars.py.toFixed(2) + ")",
-  ["V = " + pf[2].toFixed(3), pf[2] >= 0 ? "#D1495B" : "#2F6FB0"],
-  ["|E| = " + Em.toFixed(3), "#B97A1E"],
-  "方向 = " + (Math.atan2(pf[1], pf[0]) * 180 / Math.PI).toFixed(1) + "°",
-], { font: "11px monospace", lh: 15 });
 `),
     dragHandle('ef-h1', '電荷1把手', 'x1', 'y1'),
     dragHandle('ef-h2', '電荷2把手', 'x2', 'y2'),
@@ -485,6 +515,8 @@ $$ B = \left(\frac45\right)^{3/2}\frac{\mu_0 NI}{R} $$
 - 電子槍位於下方，電子向右射出後逆時針繞行。中央的垂直刻度尺從電子槍算起，單位為 cm，讀取軌跡最高點即為**直徑**。
 - 若軌跡太大撞到玻璃，電子會停止。
 - 時間已大幅放慢（實際繞一圈只需約 30 奈秒）。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -587,6 +619,12 @@ if (hit) { vx = 0; vy = 0; }`,
     slider('em-s-V', 'Va', 100, 300, 5, '加速電壓 V'),
     slider('em-s-I', 'Ic', 0.5, 3, 0.05, '線圈電流 I (A)'),
     slider('em-s-sh', 'show', 0, 1, 1, '顯示理論值'),
+    readout('em-r-V', '加速電壓 V', 'Va', { unit: 'V', digits: 0, color: C.ink, group: '設定值' }),
+    readout('em-r-I', '線圈電流 I', 'Ic', { unit: 'A', digits: 2, color: C.ink, group: '設定值' }),
+    readout('em-r-B', '中心磁場 B', 'B * 1000', { unit: 'mT', digits: 3, color: C.blue, group: '設定值' }),
+    readout('em-r-v', '電子速率 v', 'Math.sqrt(2 * qm * Va)', { unit: 'm/s', color: C.blue, group: '設定值' }),
+    readout('em-r-d', '理論直徑 d', 'show >= 0.5 ? 2 * Math.sqrt(2 * qm * Va) / (qm * B) * 100 : "（已隱藏）"', { unit: 'cm', digits: 2, color: C.teal, group: '答案（「顯示理論值」設為 1）' }),
+    readout('em-r-qm', '電子荷質比 e/m', 'show >= 0.5 ? qm : "（已隱藏）"', { unit: 'C/kg', color: C.teal, group: '答案（「顯示理論值」設為 1）' }),
     customDraw('em-draw', '電子束繪圖', String.raw`
 ctx.fillStyle = "#F4F1EA"; ctx.fillRect(0, 0, W, H);
 var cx = toPixX(0), cy = toPixY(0);
@@ -617,20 +655,6 @@ h.forEach(function (p, i) { if (i) ctx.lineTo(toPixX(p[1]), toPixY(p[2])); else 
 ctx.stroke(); ctx.restore();
 ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(toPixX(vars.x), toPixY(vars.y), 3, 0, 2 * Math.PI); ctx.fill();
 if (vars.hit) { ctx.fillStyle = "#E9A23B"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center"; ctx.fillText("電子撞到玻璃！請調大電流或降低電壓", cx, toPixY(-0.09)); }
-// 讀數
-var v = Math.sqrt(2 * vars.qm * vars.Va), r = v / (vars.qm * vars.B);
-var lines = [
-  "V = " + vars.Va.toFixed(0) + " V    I = " + vars.Ic.toFixed(2) + " A",
-  "B = " + (vars.B * 1000).toFixed(3) + " mT",
-  "v = " + v.toExponential(3) + " m/s",
-];
-if (vars.show >= 0.5) {
-  lines.push(["理論 r = " + (r * 100).toFixed(2) + " cm（d = " + (r * 200).toFixed(2) + " cm）", "#2A9D8F"]);
-  lines.push(["e/m = 2V/(B²r²) = " + (2 * vars.Va / (vars.B * vars.B * r * r)).toExponential(4), "#2A9D8F"]);
-} else {
-  lines.push(["（理論值已隱藏）", "#6B6F76"]);
-}
-infoBox(6, 6, lines, { font: "11px monospace", lh: 15 });
 `),
   ],
 };
@@ -688,6 +712,8 @@ $$ v_t = \frac{FR}{B^2\ell^2}, \qquad \tau = \frac{mR}{B^2\ell^2} $$
 - 紅色箭頭標示感應電流方向；琥珀色箭頭為外力、深紅色箭頭為磁力。
 - 下方左圖為速度（虛線為終端速度），右圖比較外力功率 $Fv$ 與焦耳熱功率 $I^2R$。
 - 參數可在播放中調整，棒的速度會自然趨向新的終端速度。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -772,6 +798,16 @@ vt = Bf > 0 ? Fa * Rr / (Bf * Bf * lr * lr) : 0;`,
     slider('in-s-R', 'Rr', 0.2, 5, 0.1, '電阻 R (Ω)'),
     button('in-b-reset', '重新開始', 'x = 0; v = 0; t = 0;'),
     button('in-b-push', '推一下（F = 0）', 'Fa = 0; v = 2; t = 0;'),
+    readout('in-r-v', '速度 v', 'v', { unit: 'm/s', digits: 3, color: C.amber, group: '導體棒' }),
+    readout('in-r-x', '位置 x', 'x', { unit: 'm', digits: 2, color: C.amber, group: '導體棒' }),
+    readout('in-r-vt', '終端速度 FR/(B²ℓ²)', 'Bf > 0 ? vt : "∞"', { unit: 'm/s', digits: 3, color: C.teal, group: '導體棒' }),
+    readout('in-r-tau', '時間常數 mR/(B²ℓ²)', 'Bf > 0 ? mr * Rr / (Bf * Bf * lr * lr) : "∞"', { unit: 's', digits: 3, color: C.teal, group: '導體棒' }),
+    readout('in-r-emf', '感應電動勢 ε = Bℓv', 'emf', { unit: 'V', digits: 3, color: C.red, group: '電路' }),
+    readout('in-r-I', '感應電流 I', 'I', { unit: 'A', digits: 3, color: C.red, group: '電路' }),
+    readout('in-r-FB', '磁力 BIℓ', 'Bf * I * lr', { unit: 'N', digits: 3, color: C.red, group: '電路' }),
+    readout('in-r-phi', '磁通量 Φ = Bℓx', 'Bf * lr * x', { unit: 'Wb', digits: 3, color: C.blue, group: '電路' }),
+    readout('in-r-Pm', '外力功率 Fv', 'Fa * v', { unit: 'W', digits: 3, color: C.amber, group: '能量' }),
+    readout('in-r-Pj', '焦耳熱功率 I²R', 'I * I * Rr', { unit: 'W', digits: 3, color: C.red, group: '能量' }),
     customDraw('in-draw', '軌道與圖表', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var ppm = 200, x = vars.x, camX = Math.max(0, x - 0.95), top = 50, bot = top + vars.lr * ppm;
@@ -809,16 +845,6 @@ if (vars.Fa > 0) arrow(X(x) + 8, bot + 22, X(x) + 8 + vars.Fa * 60, bot + 22, "#
 if (Math.abs(FB) > 1e-3) arrow(X(x) - 8, bot + 22, X(x) - 8 - FB * 60, bot + 22, "#8B1E2D", 3);
 ctx.font = "11px sans-serif"; ctx.textAlign = "left"; ctx.fillStyle = "#B97A1E"; ctx.fillText("F", X(x) + 12 + vars.Fa * 60, bot + 26);
 ctx.fillStyle = "#8B1E2D"; ctx.textAlign = "right"; ctx.fillText("FB", X(x) - 12 - FB * 60, bot + 26);
-var tau = vars.mr * vars.Rr / (vars.Bf * vars.Bf * vars.lr * vars.lr || 1e-9);
-infoBox(W - 8, top + 4, [
-  "v = " + vars.v.toFixed(3) + " m/s   x = " + x.toFixed(2) + " m",
-  "ε = Bℓv = " + vars.emf.toFixed(3) + " V",
-  "I = ε/R = " + I.toFixed(3) + " A",
-  "FB = BIℓ = " + FB.toFixed(3) + " N",
-  ["vt = FR/(B²ℓ²) = " + (vars.Bf > 0 ? vars.vt.toFixed(3) : "∞") + " m/s", "#2A9D8F"],
-  "τ = mR/(B²ℓ²) = " + tau.toFixed(3) + " s",
-  "Φ = Bℓx = " + (vars.Bf * vars.lr * x).toFixed(3) + " Wb",
-], { right: true, font: "11px monospace", lh: 15 });
 // 圖表
 var h = track("_inH", [vars.t, vars.v, vars.Fa * vars.v, I * I * vars.Rr], 4000);
 var t1 = Math.max(vars.t, 5);

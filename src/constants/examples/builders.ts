@@ -79,3 +79,37 @@ export function customDraw(id: string, name: string, code: string): ViewElement 
     properties: { Code: DRAW_LIB + code.trim() + '\n' },
   };
 }
+
+/** 實驗數據儀表板上的一張數據卡（顯示在模擬畫面下方）。 */
+export function readout(
+  id: string,
+  label: string,
+  value: string,
+  opts: { unit?: string; digits?: number; color?: string; group?: string } = {}
+): ViewElement {
+  return {
+    id,
+    type: 'Elements.Readout',
+    name: label,
+    parent: '',
+    properties: {
+      Label: `"${label}"`,
+      Value: value,
+      Unit: `"${opts.unit ?? ''}"`,
+      Digits: opts.digits === undefined ? '' : String(opts.digits),
+      Color: `"${opts.color ?? '#2F6FB0'}"`,
+      Group: `"${opts.group ?? ''}"`,
+    },
+  };
+}
+
+/** Palette shared by the examples' dashboards. */
+export const C = {
+  blue: '#2F6FB0',
+  teal: '#2A9D8F',
+  amber: '#B97A1E',
+  red: '#D1495B',
+  ink: '#2B2D31',
+  muted: '#6B6F76',
+  purple: '#533177',
+} as const;

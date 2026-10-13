@@ -1,4 +1,4 @@
-import { customDraw, doubles, drawingPanel, slider } from './builders';
+import { C, customDraw, doubles, drawingPanel, readout, slider } from './builders';
 import type { ExampleDef } from './types';
 
 // ═════════════════════════════════════════════════════════════
@@ -54,7 +54,9 @@ $$ v_t = \sqrt{\frac{g}{k}} $$
 | 發射高度 h₀ | 0 至 300 m | 從高處落下可觀察終端速度 |
 
 - **橘色球**：有空氣阻力；**灰色虛線與空心球**：同條件的真空軌跡。
-- 改變任一滑桿即重新發射；右上角小圖為速率 $v$ 隨時間的變化，紅色虛線為終端速度。
+- 改變任一滑桿即重新發射；畫面右上的小圖為速率 $v$ 隨時間的變化，紅色虛線為終端速度。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -134,6 +136,7 @@ const airdrag: ExampleDef = {
     ['tf', '0', '有阻力：飛行時間（s）'], ['tfi', '0', '真空：飛行時間（s）'],
     ['hmax', '0', '有阻力：最大高度（m）'], ['hmaxi', '0', '真空：最大高度（m）'],
     ['landed', '0', '有阻力球已落地（1 = 是）'], ['landedI', '0', '真空球已落地（1 = 是）'],
+    ['Rvac', '0', '真空理論射程（m）'], ['Hvac', '0', '真空理論最大高度（m）'], ['Tvac', '0', '真空理論飛行時間（s）'],
   ]),
   odePages: [{
     id: 'ad-ode', name: '運動方程（含二次阻力）', method: 'RungeKutta', increment: '0.005', comment: '',
@@ -173,7 +176,12 @@ if (!landedI) {
   if (yi < 0 && vyi < 0) { Ri = xi - yi * vxi / vyi; tfi = t - yi / vyi; landedI = 1; }
 }
 if (landedI) { xi = Ri; yi = 0; vxi = 0; vyi = 0; }
-v = Math.sqrt(vx * vx + vy * vy);`,
+v = Math.sqrt(vx * vx + vy * vy);
+// 真空中的解析解（對照用）
+var ar = angle * Math.PI / 180, ux = v0 * Math.cos(ar), uy = v0 * Math.sin(ar);
+Tvac = (uy + Math.sqrt(uy * uy + 2 * g * h0)) / g;
+Rvac = Math.abs(ux * Tvac);
+Hvac = h0 + (uy > 0 ? uy * uy / (2 * g) : 0);`,
   }],
   initPages: [],
   viewElements: [
@@ -182,6 +190,15 @@ v = Math.sqrt(vx * vx + vy * vy);`,
     slider('ad-s-ang', 'angle', -90, 90, 1, '仰角 θ (°)'),
     slider('ad-s-k', 'k', 0, 0.03, 0.001, '阻力參數 k'),
     slider('ad-s-h0', 'h0', 0, 300, 5, '發射高度 h₀ (m)'),
+    readout('ad-r-R', '射程 R', 'landed ? R : "飛行中…"', { unit: 'm', digits: 2, color: C.amber, group: '● 有空氣阻力' }),
+    readout('ad-r-H', '最大高度 H', 'hmax', { unit: 'm', digits: 2, color: C.amber, group: '● 有空氣阻力' }),
+    readout('ad-r-T', '飛行時間', 'landed ? tf : t', { unit: 's', digits: 2, color: C.amber, group: '● 有空氣阻力' }),
+    readout('ad-r-v', '目前速率 v', 'v', { unit: 'm/s', digits: 2, color: C.amber, group: '● 有空氣阻力' }),
+    readout('ad-r-Rv', '射程', 'Rvac', { unit: 'm', digits: 2, color: C.muted, group: '○ 真空對照（解析解）' }),
+    readout('ad-r-Hv', '最大高度', 'Hvac', { unit: 'm', digits: 2, color: C.muted, group: '○ 真空對照（解析解）' }),
+    readout('ad-r-Tv', '飛行時間', 'Tvac', { unit: 's', digits: 2, color: C.muted, group: '○ 真空對照（解析解）' }),
+    readout('ad-r-ratio', 'R / R真空', 'landed && Rvac > 0 ? R / Rvac : "—"', { digits: 3, color: C.blue, group: '比較' }),
+    readout('ad-r-vt', '終端速度 √(g/k)', 'k > 0 ? Math.sqrt(g / k) : "∞"', { unit: 'm/s', digits: 2, color: C.red, group: '比較' }),
     customDraw('ad-draw', '拋體繪圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var g = vars.g, v0 = vars.v0, h0 = vars.h0, k = vars.k;
@@ -234,17 +251,7 @@ ctx.beginPath(); ctx.arc(X(vars.xi), Y(vars.yi), 6, 0, 2 * Math.PI); ctx.stroke(
 if (!vars.landed) arrow(X(vars.x), Y(vars.y), X(vars.x) + vars.vx * 1.6, Y(vars.y) - vars.vy * 1.6, "#2F6FB0", 2);
 ctx.fillStyle = "#E9A23B"; ctx.strokeStyle = "#B97A1E";
 ctx.beginPath(); ctx.arc(X(vars.x), Y(vars.y), 7, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
-// 讀數
 var vt = k > 0 ? Math.sqrt(g / k) : Infinity;
-infoBox(L + 6, 10, [
-  ["● 有阻力  " + (vars.landed ? "射程 R = " + vars.R.toFixed(2) + " m" : "飛行中…"), "#B97A1E"],
-  ["          H = " + vars.hmax.toFixed(2) + " m   t = " + (vars.landed ? vars.tf : vars.t).toFixed(2) + " s", "#B97A1E"],
-  ["○ 真空    射程 = " + Rid.toFixed(2) + " m", "#6B6F76"],
-  ["          H = " + Hid.toFixed(2) + " m   t = " + tfiA.toFixed(2) + " s", "#6B6F76"],
-  "速率 v = " + vars.v.toFixed(2) + " m/s",
-  ["終端速度 vt = √(g/k) = " + (isFinite(vt) ? vt.toFixed(2) + " m/s" : "∞"), "#D1495B"],
-  (vars.landed && Rid > 0 ? "R / R真空 = " + (vars.R / Rid).toFixed(3) : " "),
-], { font: "11px monospace", lh: 15 });
 // 速率–時間小圖
 var hv = track("_vt", [vars.t, vars.v], 3000);
 var vmax = Math.max(v0, isFinite(vt) ? vt : 0, 1) * 1.1;
@@ -303,6 +310,8 @@ $$ \Delta K = \frac12\mu(1 - e^2)(u_1 - u_2)^2, \qquad \mu = \frac{m_1m_2}{m_1 +
 - 滑車 2 的初速 u2 預設為 0，可在變數積木中修改。
 - 軌道下方的 ▲ 為質心位置；底部長條圖比較碰撞前（淺色）與目前（深色）的動量與動能。
 - 改變任一滑桿即重新開始。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -412,6 +421,16 @@ vcm = p / (m1 + m2);`,
     slider('co-s-m2', 'm2', 0.2, 5, 0.1, '質量 m₂ (kg)'),
     slider('co-s-u1', 'u1', 0, 1.5, 0.05, '初速 u₁ (m/s)'),
     slider('co-s-e', 'e', 0, 1, 0.05, '恢復係數 e'),
+    readout('co-r-v1', '滑車 1 速度 v₁', 'v1', { unit: 'm/s', digits: 4, color: C.blue, group: '速度' }),
+    readout('co-r-v2', '滑車 2 速度 v₂', 'v2', { unit: 'm/s', digits: 4, color: C.red, group: '速度' }),
+    readout('co-r-vcm', '質心速度 Vcm', 'vcm', { unit: 'm/s', digits: 4, color: C.teal, group: '速度' }),
+    readout('co-r-n', '碰撞次數', 'hits', { digits: 0, color: C.ink, group: '速度' }),
+    readout('co-r-p0', '碰撞前總動量', 'p0', { unit: 'kg·m/s', digits: 4, color: C.muted, group: '守恆量' }),
+    readout('co-r-p', '目前總動量', 'p', { unit: 'kg·m/s', digits: 4, color: C.blue, group: '守恆量' }),
+    readout('co-r-K0', '碰撞前總動能', 'K0', { unit: 'J', digits: 4, color: C.muted, group: '守恆量' }),
+    readout('co-r-K', '目前總動能', 'K', { unit: 'J', digits: 4, color: C.amber, group: '守恆量' }),
+    readout('co-r-KK', 'K後 / K前', 'K0 > 0 ? K / K0 : "—"', { digits: 4, color: C.amber, group: '守恆量' }),
+    readout('co-r-e', '實測恢復係數 e', 'hits > 0 && Math.abs(u2 - u1) > 1e-9 ? -(v2 - v1) / (u2 - u1) : "尚未碰撞"', { digits: 3, color: C.purple, group: '守恆量' }),
     customDraw('co-draw', '氣墊軌道繪圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var m1 = vars.m1, m2 = vars.m2, w = 0.35;
@@ -456,13 +475,6 @@ function bars(x0, title, before, now, unit, color, light) {
 }
 bars(30, "總動量 p", vars.p0, vars.p, "kg·m/s", "#2F6FB0", "#C9DAEE");
 bars(200, "總動能 K", vars.K0, vars.K, "J", "#E9A23B", "#F5DDB5");
-var du = vars.u2 - vars.u1, eMeas = vars.hits > 0 && Math.abs(du) > 1e-9 ? -(vars.v2 - vars.v1) / du : NaN;
-infoBox(W - 12, ry + 44, [
-  "碰撞次數 = " + vars.hits,
-  "質心速度 Vcm = " + vars.vcm.toFixed(4) + " m/s",
-  "K後/K前 = " + (vars.K0 > 0 ? (vars.K / vars.K0).toFixed(4) : "—"),
-  "實測 e = " + (isFinite(eMeas) ? eMeas.toFixed(3) : "（尚未碰撞）"),
-], { right: true, font: "11px monospace", lh: 15 });
 `),
   ],
 };
@@ -518,8 +530,10 @@ $$ a = g(\sin\theta - \mu\cos\theta), \qquad \alpha R = \frac{\mu g\cos\theta}{\
 | 摩擦係數 μ | 0 至 1 | 物體與斜面之間（滑塊恆為無摩擦） |
 
 - 四條跑道由上而下為：實心球、實心圓柱、圓環、無摩擦滑塊。輪輻的轉動可看出是否打滑。
-- 右側顯示每個物體的狀態（滾動／打滑）、$\mu_{min}$、實測到達時間與理論值。
+- 跑道右側顯示每個物體的狀態（滾動／打滑）與 $\mu_{min}$；實測與理論到達時間、加速度列在下方儀表板。
 - 改變滑桿即重新開始；斜面長度 Lr 可在變數積木中修改。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -637,6 +651,18 @@ if (s4 >= Lr) { if (!T4) T4 = t - (s4 - Lr) / u4; s4 = Lr; u4 = 0; q4 = 0; }`,
     drawingPanel('rl-dp', 580, 400, [0, 10, 0, 10]),
     slider('rl-s-th', 'theta', 5, 60, 1, '傾角 θ (°)'),
     slider('rl-s-mu', 'mu', 0, 1, 0.01, '摩擦係數 μ'),
+    readout('rl-r-T1', '實心球', 'T1 > 0 ? T1 : "…"', { unit: 's', digits: 3, color: C.red, group: '實測到達時間' }),
+    readout('rl-r-T2', '實心圓柱', 'T2 > 0 ? T2 : "…"', { unit: 's', digits: 3, color: C.blue, group: '實測到達時間' }),
+    readout('rl-r-T3', '圓環', 'T3 > 0 ? T3 : "…"', { unit: 's', digits: 3, color: C.amber, group: '實測到達時間' }),
+    readout('rl-r-T4', '無摩擦滑塊', 'T4 > 0 ? T4 : "…"', { unit: 's', digits: 3, color: C.teal, group: '實測到達時間' }),
+    readout('rl-r-Th1', '實心球', 'Math.sqrt(2 * Lr / (mu >= b1 * Math.tan(th) / (1 + b1) ? g * Math.sin(th) / (1 + b1) : g * (Math.sin(th) - mu * Math.cos(th))))', { unit: 's', digits: 3, color: C.muted, group: '理論到達時間' }),
+    readout('rl-r-Th2', '實心圓柱', 'Math.sqrt(2 * Lr / (mu >= b2 * Math.tan(th) / (1 + b2) ? g * Math.sin(th) / (1 + b2) : g * (Math.sin(th) - mu * Math.cos(th))))', { unit: 's', digits: 3, color: C.muted, group: '理論到達時間' }),
+    readout('rl-r-Th3', '圓環', 'Math.sqrt(2 * Lr / (mu >= b3 * Math.tan(th) / (1 + b3) ? g * Math.sin(th) / (1 + b3) : g * (Math.sin(th) - mu * Math.cos(th))))', { unit: 's', digits: 3, color: C.muted, group: '理論到達時間' }),
+    readout('rl-r-Th4', '無摩擦滑塊', 'Math.sqrt(2 * Lr / g * Math.sin(th))', { unit: 's', digits: 3, color: C.muted, group: '理論到達時間' }),
+    readout('rl-r-a1', '實心球 a', '(mu >= b1 * Math.tan(th) / (1 + b1) ? g * Math.sin(th) / (1 + b1) : g * (Math.sin(th) - mu * Math.cos(th)))', { unit: 'm/s²', digits: 3, color: C.red, group: '理論加速度' }),
+    readout('rl-r-a2', '實心圓柱 a', '(mu >= b2 * Math.tan(th) / (1 + b2) ? g * Math.sin(th) / (1 + b2) : g * (Math.sin(th) - mu * Math.cos(th)))', { unit: 'm/s²', digits: 3, color: C.blue, group: '理論加速度' }),
+    readout('rl-r-a3', '圓環 a', '(mu >= b3 * Math.tan(th) / (1 + b3) ? g * Math.sin(th) / (1 + b3) : g * (Math.sin(th) - mu * Math.cos(th)))', { unit: 'm/s²', digits: 3, color: C.amber, group: '理論加速度' }),
+    readout('rl-r-a4', '無摩擦滑塊 a', 'g * Math.sin(th)', { unit: 'm/s²', digits: 3, color: C.teal, group: '理論加速度' }),
     customDraw('rl-draw', '斜面跑道繪圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var th = vars.theta * Math.PI / 180, g = vars.g, mu = vars.mu, Lr = vars.Lr;
@@ -683,8 +709,7 @@ for (var i = 1; i <= 4; i++) {
   ctx.font = "11px monospace"; ctx.fillStyle = "#2B2D31";
   var st = i === 4 ? "無摩擦滑動" : (rollOK ? "純滾動" : "又滾又滑！");
   ctx.fillText("狀態：" + st + (i === 4 ? "" : "  μmin=" + (b * Math.tan(th) / (1 + b)).toFixed(3)), lx, top + 32);
-  ctx.fillText("到達 T = " + (Tm ? Tm.toFixed(3) : "…") + " s  理論 " + Tth.toFixed(3), lx, top + 48);
-  ctx.fillText("v = " + vars["u" + i].toFixed(2) + "  ωR = " + vars["q" + i].toFixed(2) + " m/s", lx, top + 64);
+  ctx.fillText("到達 T = " + (Tm ? Tm.toFixed(3) + " s" : "…"), lx, top + 48);
   ctx.strokeStyle = "#E5E1D8"; ctx.beginPath(); ctx.moveTo(0, top + laneH); ctx.lineTo(W, top + laneH); ctx.stroke();
 }
 ctx.fillStyle = "#6B6F76"; ctx.font = "11px sans-serif";
@@ -740,6 +765,8 @@ $$ T_p = \frac{2\pi}{\Omega\sin\lambda} = \frac{1\ \text{恆星日}}{\sin\lambda
 - 畫面為由上往下俯視，上方為北、右方為東。藍色曲線是擺錘的軌跡（玫瑰線）。
 - **灰色虛線**：理論擺動平面；**紅色實線**：最近一次擺到最遠點時的實測方位。
 - 改變滑桿即從東側最遠點靜止釋放（在旋轉座標系中靜止）。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -833,6 +860,13 @@ _v._rv = rv;`,
     drawingPanel('fc-dp', 440, 440, [-1.45, 1.45, -1.45, 1.45], true),
     slider('fc-s-om', 'Om', 0, 0.12, 0.005, '自轉角速度 Ω (rad/s)'),
     slider('fc-s-lat', 'lat', -90, 90, 1, '緯度 λ (°)'),
+    readout('fc-r-T0', '擺動週期 T₀', '2 * Math.PI * Math.sqrt(Lp / g)', { unit: 's', digits: 2, color: C.ink, group: '模擬（放大自轉）' }),
+    readout('fc-r-oz', 'Ω sinλ', 'Om * Math.sin(lat * Math.PI / 180)', { unit: 'rad/s', digits: 4, color: C.blue, group: '模擬（放大自轉）' }),
+    readout('fc-r-Tp', '進動週期', 'Math.abs(Om * Math.sin(lat * Math.PI / 180)) > 1e-9 ? 2 * Math.PI / Math.abs(Om * Math.sin(lat * Math.PI / 180)) : "∞"', { unit: 's', digits: 0, color: C.blue, group: '模擬（放大自轉）' }),
+    readout('fc-r-dir', '進動方向', 'lat > 0 ? "順時針" : lat < 0 ? "逆時針" : "不進動"', { color: C.ink, group: '模擬（放大自轉）' }),
+    readout('fc-r-turn', '理論已轉角度', 'Math.abs(Om * Math.sin(lat * Math.PI / 180)) * t * 180 / Math.PI', { unit: '°', digits: 1, color: C.muted, group: '擺動平面' }),
+    readout('fc-r-phi', '實測方位角', 'phiMeas * 180 / Math.PI', { unit: '°', digits: 1, color: C.red, group: '擺動平面' }),
+    readout('fc-r-earth', '真實地球進動週期', 'Math.abs(Math.sin(lat * Math.PI / 180)) > 1e-6 ? 23.934 / Math.abs(Math.sin(lat * Math.PI / 180)) : "∞"', { unit: 'h', digits: 1, color: C.teal, group: '換算到真實地球' }),
     customDraw('fc-draw', '俯視圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var A = vars.A, cx = toPixX(0), cy = toPixY(0), Rp = toPixLen(A);
@@ -868,17 +902,6 @@ ctx.fillStyle = "#E9A23B"; ctx.strokeStyle = "#B97A1E";
 ctx.beginPath(); ctx.arc(toPixX(vars.x), toPixY(vars.y), 8, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
 ctx.fillStyle = "#2B2D31"; ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, 2 * Math.PI); ctx.fill();
 // 讀數
-var T0 = 2 * Math.PI * Math.sqrt(vars.Lp / vars.g);
-var sl = Math.sin(vars.lat * Math.PI / 180);
-var turned = (Math.abs(Oz) * vars.t * 180 / Math.PI);
-infoBox(8, 8, [
-  "擺動週期 T0 = " + T0.toFixed(2) + " s",
-  "Ω sinλ = " + Oz.toFixed(4) + " rad/s",
-  "模擬進動週期 = " + (Math.abs(Oz) > 1e-9 ? (2 * Math.PI / Math.abs(Oz)).toFixed(0) + " s" : "∞"),
-  "理論已轉 " + turned.toFixed(1) + "°（" + (Oz > 0 ? "順時針" : Oz < 0 ? "逆時針" : "不轉") + "）",
-  ["實測方位 = " + (pm * 180 / Math.PI).toFixed(1) + "°", "#D1495B"],
-  ["真實地球：Tp = " + (Math.abs(sl) > 1e-6 ? (23.934 / Math.abs(sl)).toFixed(1) + " h" : "∞"), "#2A9D8F"],
-], { font: "11px monospace", lh: 15 });
 ctx.fillStyle = "#6B6F76"; ctx.font = "11px monospace"; ctx.textAlign = "right";
 ctx.fillText("t = " + vars.t.toFixed(1) + " s", W - 8, H - 8);
 `),

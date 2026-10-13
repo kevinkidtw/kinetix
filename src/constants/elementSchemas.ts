@@ -202,6 +202,21 @@ const ELEMENT_SCHEMAS: Record<string, ElementMeta> = {
       { name: 'Code', label: '繪圖程式碼', type: 'code', defaultValue: '', tab: 'behavior', description: '每個畫面都會執行的 JavaScript 繪圖程式碼。可用參數：ctx（畫布）、vars（所有變數）、toPixX/toPixY/toPixLen（座標轉換）、W/H（畫布寬高像素）' },
     ],
   },
+  'Elements.Readout': {
+    type: 'Elements.Readout',
+    label: '數據卡',
+    icon: '📟',
+    defaultWidth: 140,
+    defaultHeight: 60,
+    schema: [
+      { name: 'Label',  label: '名稱',       type: 'text',   defaultValue: '"數值"',     tab: 'init',   description: '顯示在數據卡上方的名稱，例如 "週期 T"' },
+      { name: 'Value',  label: '數值運算式', type: 'text',   defaultValue: 't',          tab: 'init',   description: '要即時顯示的變數或運算式，例如 x、0.5*m*v*v；也可以回傳文字，例如 b < 4 ? "欠阻尼" : "過阻尼"' },
+      { name: 'Unit',   label: '單位',       type: 'text',   defaultValue: '""',         tab: 'init',   description: '顯示在數值後方的單位，例如 "m/s"' },
+      { name: 'Digits', label: '小數位數',   type: 'number', defaultValue: '',           tab: 'visual', description: '留空則自動取 4 位有效數字；很大或很小的數會以科學記號顯示' },
+      { name: 'Color',  label: '強調色',     type: 'color',  defaultValue: '"#2F6FB0"',  tab: 'visual', description: '數值與左側色條的顏色' },
+      { name: 'Group',  label: '分組',       type: 'text',   defaultValue: '""',         tab: 'visual', description: '相同分組的數據卡會排在同一區，例如 "實測"、"理論"' },
+    ],
+  },
 };
 
 export default ELEMENT_SCHEMAS;
