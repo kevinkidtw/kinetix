@@ -5,6 +5,7 @@ import type {
   EngineSnapshot,
   PerfStats,
   RtModel,
+  RtViewElement,
   SampleChannel,
   VarBag,
 } from '../core/types';
@@ -126,6 +127,10 @@ export async function startHost(): Promise<void> {
       compileExprSafe(`pf:${el.id}`, p.Value, el.id, 'Value');
     } else if (el.type === 'Elements.Readout') {
       compileExprSafe(`ro:${el.id}`, p.Value, el.id, 'Value');
+    } else if (el.type === 'Elements.Label' && p.Text && p.Text.trim()) {
+      // Plain (non-expression) label text is valid too, so no diagnostic here.
+      const res = compiler.expr(p.Text.trim(), { block: 'view', pageId: el.id, item: 'Text' });
+      if (typeof res === 'function') compiledExprs.set(`lbl:${el.id}`, res);
     }
   });
 
@@ -261,8 +266,247 @@ export async function startHost(): Promise<void> {
     );
   }
 
+  const CANVAS_SHAPE_TYPES = new Set([
+    'Elements.Shape2D',
+    'Elements.Spring2D',
+    'Elements.Arrow2D',
+    'Elements.Trail2D',
+  ]);
+
+  // Element selected in the editor's element list (preview only). DOM-based
+  // elements get an outline; shapes drawn on a canvas get a dashed box.
+  let highlightId: string | null = null;
+  let highlightFallback: HTMLElement | null = null;
+
+  function drawHighlightBox(
+    ctx: CanvasRenderingContext2D,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    name: string,
+    hover = false
+  ) {
+    const pad = 7;
+    const l = Math.min(x0, x1) - pad;
+    const t = Math.min(y0, y1) - pad;
+    const w = Math.abs(x1 - x0) + 2 * pad;
+    const h = Math.abs(y1 - y0) + 2 * pad;
+    const color = hover ? '#2F6FB0' : '#E9A23B';
+    ctx.save();
+    ctx.fillStyle = hover ? 'rgba(47,111,176,0.10)' : 'rgba(233,162,59,0.14)';
+    ctx.fillRect(l, t, w, h);
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(l, t, w, h);
+    ctx.setLineDash([]);
+    ctx.font = '600 12px system-ui, sans-serif';
+    const tw = ctx.measureText(name).width + 10;
+    const ty = t - 20 < 0 ? t + h + 2 : t - 20;
+    ctx.fillStyle = color;
+    ctx.fillRect(l, ty, tw, 18);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, l + 5, ty + 9);
+    ctx.restore();
+  }
+
+  /** Pixel box of a canvas-drawn element, or null when nothing is drawn. */
+  function highlightBoxOf(
+    el: RtViewElement,
+    helpers: ReturnType<typeof getDrawingHelpers>
+  ): [number, number, number, number] | null {
+    const num = (key: string, dflt: number) =>
+      Number(compiledExprs.get(`el:${el.id}:${key}`)?.(viewVars) ?? dflt);
+    const { toPixX, toPixY, toPixLen } = helpers;
+    if (el.type === 'Elements.Shape2D') {
+      const px = toPixX(num('X', 0));
+      const py = toPixY(num('Y', 0));
+      const sx = toPixLen(num('SizeX', 0.3) || 0.3);
+      const sy = toPixLen(num('SizeY', 0.3) || 0.3);
+      return [px - sx, py - sy, px + sx, py + sy];
+    }
+    if (el.type === 'Elements.Spring2D' || el.type === 'Elements.Arrow2D') {
+      const x = num('X', 0);
+      const y = num('Y', 0);
+      const dx = num('SizeX', el.type === 'Elements.Spring2D' ? 2 : 1);
+      const dy = num('SizeY', 0);
+      return [toPixX(x), toPixY(y), toPixX(x + dx), toPixY(y + dy)];
+    }
+    if (el.type === 'Elements.Trail2D') {
+      const pts = trailBuffers.get(el.id) ?? [];
+      if (!pts.length) return null;
+      let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+      for (const [x, y] of pts) {
+        const px = toPixX(x);
+        const py = toPixY(y);
+        x0 = Math.min(x0, px);
+        y0 = Math.min(y0, py);
+        x1 = Math.max(x1, px);
+        y1 = Math.max(y1, py);
+      }
+      return [x0, y0, x1, y1];
+    }
+    return null;
+  }
+
+  function setHighlightFallback(target: HTMLElement | null) {
+    if (highlightFallback === target) return;
+    highlightFallback?.classList.remove('sim-hl');
+    highlightFallback = target;
+    target?.classList.add('sim-hl');
+  }
+
+  function applyHighlight(id: string | null) {
+    highlightId = id;
+    document.querySelectorAll('.sim-hl').forEach((n) => n.classList.remove('sim-hl'));
+    highlightFallback = null;
+    const el = id ? model!.viewElements.find((e) => e.id === id) : undefined;
+    let target: HTMLElement | null = null;
+    if (el) {
+      target = document.querySelector<HTMLElement>(`[data-el="${CSS.escape(el.id)}"]`);
+      if (target) {
+        target.classList.add('sim-hl');
+      } else {
+        // Drawn on a drawing panel: point at that panel.
+        target = getPanelForEl(el.parent)?.canvas ?? null;
+        if (el.type === 'Elements.CustomDraw') setHighlightFallback(target);
+      }
+    }
+    if (target && window.parent !== window) {
+      const r = target.getBoundingClientRect();
+      window.parent.postMessage({ type: 'ejss:highlightRect', top: r.top, bottom: r.bottom }, '*');
+    }
+    requestRender();
+  }
+
+  // ── Pick mode: click an element in the preview to select it in the editor ──
+  // While it is on, clicks never reach controls or drag handlers; hovering
+  // outlines the element a click would pick.
+  let pickMode = false;
+  let hoverId: string | null = null;
+  let hoverEl: HTMLElement | null = null;
+
+  function distToSegment(px: number, py: number, x0: number, y0: number, x1: number, y1: number) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len2 = dx * dx + dy * dy;
+    const u = len2 ? Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / len2)) : 0;
+    return Math.hypot(px - (x0 + u * dx), py - (y0 + u * dy));
+  }
+
+  /** Topmost element drawn on `panel` at canvas pixel (px, py). */
+  function pickOnPanel(panel: DrawingPanelState, px: number, py: number): string {
+    const helpers = getDrawingHelpers(panel);
+    const els = model!.viewElements.filter((el) => getPanelForEl(el.parent) === panel);
+    for (let i = els.length - 1; i >= 0; i--) {
+      const el = els[i];
+      if (!CANVAS_SHAPE_TYPES.has(el.type)) continue;
+      const visible = compiledExprs.get(`el:${el.id}:Visible`);
+      try {
+        if (visible && !visible(viewVars)) continue;
+      } catch {
+        // drawn as visible when the expression fails, so pickable too
+      }
+      const b = highlightBoxOf(el, helpers);
+      if (!b) continue;
+      const [x0, y0, x1, y1] = b;
+      if (el.type === 'Elements.Shape2D') {
+        if (px >= Math.min(x0, x1) - 4 && px <= Math.max(x0, x1) + 4 && py >= Math.min(y0, y1) - 4 && py <= Math.max(y0, y1) + 4) return el.id;
+      } else if (el.type === 'Elements.Trail2D') {
+        const pts = trailBuffers.get(el.id) ?? [];
+        for (let k = 1; k < pts.length; k++) {
+          const d = distToSegment(
+            px, py,
+            helpers.toPixX(pts[k - 1][0]), helpers.toPixY(pts[k - 1][1]),
+            helpers.toPixX(pts[k][0]), helpers.toPixY(pts[k][1])
+          );
+          if (d <= 6) return el.id;
+        }
+      } else if (distToSegment(px, py, x0, y0, x1, y1) <= 8) {
+        return el.id;
+      }
+    }
+    // Nothing specific under the pointer: custom drawing on this panel, else the panel.
+    const custom = els.filter((el) => el.type === 'Elements.CustomDraw').at(-1);
+    return custom?.id ?? panel.id;
+  }
+
+  function pickAt(e: MouseEvent): string | null {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target) return null;
+    const panel = drawingPanels.find((p) => p.canvas === target);
+    if (panel) {
+      const r = panel.canvas.getBoundingClientRect();
+      const px = ((e.clientX - r.left) * panel.logicalW) / (r.width || 1);
+      const py = ((e.clientY - r.top) * panel.logicalH) / (r.height || 1);
+      return pickOnPanel(panel, px, py);
+    }
+    return target.closest<HTMLElement>('[data-el]')?.dataset.el ?? null;
+  }
+
+  function setHover(id: string | null) {
+    if (id === hoverId) return;
+    hoverId = id;
+    hoverEl?.classList.remove('sim-hover');
+    hoverEl = null;
+    const el = id ? model!.viewElements.find((v) => v.id === id) : undefined;
+    // Shapes drawn on a canvas get their hover box in renderAll instead.
+    if (el && !CANVAS_SHAPE_TYPES.has(el.type)) {
+      hoverEl =
+        document.querySelector<HTMLElement>(`[data-el="${CSS.escape(el.id)}"]`) ??
+        getPanelForEl(el.parent)?.canvas ??
+        null;
+      hoverEl?.classList.add('sim-hover');
+    }
+    requestRender();
+  }
+
+  function setPickMode(on: boolean) {
+    pickMode = on;
+    document.body.classList.toggle('sim-picking', on);
+    if (!on) setHover(null);
+  }
+
+  const swallow = (e: Event) => {
+    if (!pickMode) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+  for (const type of ['mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend', 'wheel']) {
+    window.addEventListener(type, swallow, { capture: true, passive: false });
+  }
+  window.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (!pickMode) return;
+      swallow(e);
+      const id = pickAt(e);
+      if (id && window.parent !== window) window.parent.postMessage({ type: 'ejss:pick', id }, '*');
+    },
+    { capture: true }
+  );
+  window.addEventListener(
+    'pointermove',
+    (e) => {
+      if (!pickMode) return;
+      e.stopImmediatePropagation();
+      setHover(pickAt(e));
+    },
+    { capture: true }
+  );
+  document.documentElement.addEventListener('mouseleave', () => setHover(null));
+  window.addEventListener('keydown', (e) => {
+    if (pickMode && e.key === 'Escape' && window.parent !== window) {
+      window.parent.postMessage({ type: 'ejss:pickExit' }, '*');
+    }
+  });
+
   // 7. Render function
   function renderAll() {
+    let hlDrawn = false;
+    let hlPanel: DrawingPanelState | null = null;
     // 7.1 Drawing panels
     drawingPanels.forEach((panel) => {
       clearAndDrawGrid(panel);
@@ -327,7 +571,20 @@ export async function startHost(): Promise<void> {
         } else if (el.type === 'Elements.Trail2D') {
           const pts = trailBuffers.get(el.id) ?? [];
           drawTrail2D(panel.ctx, helpers, pts, p.LineColor);
-        } else if (el.type === 'Elements.CustomDraw') {
+        }
+        if (el.id === hoverId && el.id !== highlightId && CANVAS_SHAPE_TYPES.has(el.type)) {
+          const b = highlightBoxOf(el, helpers);
+          if (b) drawHighlightBox(panel.ctx, b[0], b[1], b[2], b[3], el.name, true);
+        }
+        if (el.id === highlightId && CANVAS_SHAPE_TYPES.has(el.type)) {
+          hlPanel = panel;
+          const b = highlightBoxOf(el, helpers);
+          if (b) {
+            drawHighlightBox(panel.ctx, b[0], b[1], b[2], b[3], el.name);
+            hlDrawn = true;
+          }
+        }
+        if (el.type === 'Elements.CustomDraw') {
           const fn = customDrawFns.get(el.id);
           if (fn) {
             try {
@@ -350,6 +607,9 @@ export async function startHost(): Promise<void> {
         }
       });
     });
+
+    // A selected shape that is hidden or not drawn yet: outline its panel.
+    if (hlPanel) setHighlightFallback(hlDrawn ? null : (hlPanel as DrawingPanelState).canvas);
 
     // 7.2 Plotting panels
     plottingPanels.forEach((pp) => {
@@ -629,9 +889,15 @@ export async function startHost(): Promise<void> {
         proxy.setSpeed(data.speed);
       } else if (data.type === 'ejss:setVars') {
         setViewVars(data.patch);
+      } else if (data.type === 'ejss:highlight') {
+        applyHighlight(typeof data.id === 'string' ? data.id : null);
+      } else if (data.type === 'ejss:pickMode') {
+        setPickMode(Boolean(data.on));
       }
     }
   });
+  // Let the editor re-send settings (speed, selection) to this fresh page.
+  if (window.parent !== window) window.parent.postMessage({ type: 'ejss:ready' }, '*');
 
   // 13. Expose functions to window (for standalone export HTML UI)
   window.simPlay = doPlay;

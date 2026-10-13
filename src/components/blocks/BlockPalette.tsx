@@ -32,14 +32,28 @@ const MODEL_ACTIONS = [
   },
 ];
 
-export default function BlockPalette() {
+/** First of x, y, z, a, b, … (then var1, var2, …) that is not taken yet. */
+function freeVariableName(taken: Set<string>): string {
+  for (const n of ['x', 'y', 'z', 'a', 'b', 'c', 'k', 'm']) if (!taken.has(n)) return n;
+  let i = 1;
+  while (taken.has(`var${i}`)) i++;
+  return `var${i}`;
+}
+
+interface Props {
+  /** Called with the id of the block just added, so the editor can show it. */
+  onAdded?: (blockId: string) => void;
+}
+
+export default function BlockPalette({ onAdded }: Props) {
   const store = useSimulationStore();
   const { selectedElementId, viewElements } = store;
   const selectedEl = selectedElementId ? viewElements.find((e) => e.id === selectedElementId) : null;
 
   const handleModelAction = (action: string) => {
     if (action === 'addVariable') {
-      store.addVariable({ name: 'x', value: '0', type: 'double', comment: '', page: 'Variables', scope: selectedElementId ?? 'global' });
+      const name = freeVariableName(new Set(store.variables.map((v) => v.name)));
+      store.addVariable({ name, value: '0', type: 'double', comment: '', page: 'Variables', scope: 'global' });
     } else if (action === 'addOdePage') {
       store.addOdePage();
     } else if (action === 'addConstraintPage') {
@@ -47,6 +61,14 @@ export default function BlockPalette() {
     } else if (action === 'addInitPage') {
       store.addInitPage();
     }
+    const s = useSimulationStore.getState();
+    const list =
+      action === 'addVariable' ? s.variables
+      : action === 'addOdePage' ? s.odePages
+      : action === 'addConstraintPage' ? s.constraintPages
+      : s.initPages;
+    const added = list.at(-1);
+    if (added) onAdded?.(added.id);
   };
 
   return (
@@ -82,7 +104,7 @@ export default function BlockPalette() {
               onClick={() => handleModelAction(item.action)}
               className={`${item.color} rounded-control px-3 py-2 text-xs font-semibold w-full text-left transition-all duration-150 border cursor-pointer active:scale-[0.98] min-h-[36px] flex items-center shadow-xs`}
             >
-              {item.action === 'addVariable' && selectedEl ? '+ 新增元件變數' : item.label}
+              {item.label}
             </button>
           </div>
         ))}

@@ -23,8 +23,8 @@ export default function AddElementModal({ onClose }: Props) {
       name,
       parent: '',
       properties: props,
-      x: 20,
-      y: 20,
+      // No x/y: the runtime lays new elements out automatically instead of
+      // stacking them all at the same spot.
       width: meta.defaultWidth,
       height: meta.defaultHeight,
     });

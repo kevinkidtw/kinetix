@@ -84,3 +84,12 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* A block just added from the block palette */
+@keyframes block-flash {
+  0%, 60% { box-shadow: 0 0 0 3px rgba(233, 162, 59, 0.55); }
+  100% { box-shadow: 0 0 0 3px rgba(233, 162, 59, 0); }
+}
+.block-flash {
+  animation: block-flash 1.4s ease-out;
+}

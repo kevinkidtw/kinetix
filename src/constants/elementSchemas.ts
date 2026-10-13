@@ -99,7 +99,8 @@ const ELEMENT_SCHEMAS: Record<string, ElementMeta> = {
     defaultHeight: 30,
     schema: [
       { name: 'Text',     label: '文字',    type: 'text',    defaultValue: '"選項"', tab: 'init',     description: '顯示在核取方框旁的說明文字' },
-      { name: 'Checked',  label: '初始勾選', type: 'boolean', defaultValue: 'false', tab: 'init',     description: '模擬開始時是否預設為勾選狀態' },
+      { name: 'Variable', label: '綁定變數', type: 'text',    defaultValue: '',      tab: 'init',     description: '勾選狀態要寫入的布林（boolean）變數名稱，例如 showV；再把向量的「是否顯示」填入 showV，就能用核取方框切換顯示' },
+      { name: 'Checked',  label: '初始勾選', type: 'boolean', defaultValue: 'false', tab: 'init',     description: '模擬開始時是否預設為勾選狀態；有綁定變數時以變數的初始值為準' },
       { name: 'OnChange', label: '變更事件', type: 'code',    defaultValue: '',      tab: 'behavior', description: '使用者勾選或取消勾選時執行的程式碼' },
     ],
   },
@@ -110,7 +111,7 @@ const ELEMENT_SCHEMAS: Record<string, ElementMeta> = {
     defaultWidth: 120,
     defaultHeight: 30,
     schema: [
-      { name: 'Text',      label: '文字',   type: 'text',   defaultValue: '"文字"',  tab: 'init',   description: '標籤顯示的文字內容，可填入變數名稱動態顯示數值，例如：「速度：」+vx' },
+      { name: 'Text',      label: '文字',   type: 'text',   defaultValue: '"文字"',  tab: 'init',   description: '標籤顯示的文字：純文字請用雙引號包住，例如 "標題"；也可以接上變數動態顯示，例如 "速度：" + vx' },
       { name: 'Font',      label: '字型',   type: 'text',   defaultValue: '""',      tab: 'visual', description: '字型名稱，例如 "Arial"、"標楷體"；留空使用預設字型' },
       { name: 'FontSize',  label: '字號',   type: 'number', defaultValue: '14',      tab: 'visual', description: '文字大小（像素），建議 12～24' },
       { name: 'ForeColor', label: '文字色', type: 'color',  defaultValue: '"black"', tab: 'visual', description: '文字顏色' },
@@ -159,8 +160,8 @@ const ELEMENT_SCHEMAS: Record<string, ElementMeta> = {
     schema: [
       { name: 'X',         label: 'X 起點', type: 'text',  defaultValue: '0',        tab: 'init',   description: '彈簧一端的 X 座標（世界座標），通常固定在牆壁或原點' },
       { name: 'Y',         label: 'Y 起點', type: 'text',  defaultValue: '0',        tab: 'init',   description: '彈簧一端的 Y 座標（世界座標）' },
-      { name: 'SizeX',     label: '端點X',  type: 'text',  defaultValue: '2',        tab: 'init',   description: '彈簧另一端的 X 座標，填入質點位置變數（如 x）讓彈簧跟著伸縮' },
-      { name: 'SizeY',     label: '端點Y',  type: 'text',  defaultValue: '0',        tab: 'init',   description: '彈簧另一端的 Y 座標，填入質點位置變數（如 y）讓彈簧跟著移動' },
+      { name: 'SizeX',     label: '端點X',  type: 'text',  defaultValue: '2',        tab: 'init',   description: '彈簧另一端相對於起點的 X 位移；起點設在 0 時，填入質點位置變數（如 x）就能讓彈簧跟著伸縮' },
+      { name: 'SizeY',     label: '端點Y',  type: 'text',  defaultValue: '0',        tab: 'init',   description: '彈簧另一端相對於起點的 Y 位移；起點設在 0 時，填入質點位置變數（如 y）就能讓彈簧跟著移動' },
       { name: 'LineColor', label: '顏色',   type: 'color', defaultValue: '"black"',  tab: 'visual', description: '彈簧的顯示顏色' },
     ],
   },

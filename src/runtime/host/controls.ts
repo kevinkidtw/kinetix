@@ -22,6 +22,22 @@ function sliderDecimals(step: string | undefined): number {
   return Math.min(4, Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)));
 }
 
+/** Decimal places of an EjsS number format: "0.000" → 3, "0" → 0, "" → 2. */
+function formatDecimals(format: string | undefined): number {
+  const f = (format ?? '').trim().replace(/^"|"$/g, '');
+  if (!f) return 2;
+  const dot = f.indexOf('.');
+  return dot < 0 ? 0 : Math.min(8, f.length - dot - 1);
+}
+
+/** Label text: numbers are shown with 4 significant digits. */
+function labelText(v: unknown): string {
+  if (typeof v === 'number') return Number.isFinite(v) ? String(Number(v.toPrecision(4))) : String(v);
+  return String(v ?? '');
+}
+
+const IDENT = /^[A-Za-z_$][\w$]*$/;
+
 export function createControlsManager(
   compiledExprs: Map<string, CompiledExpr>
 ): ControlsManager {
@@ -79,6 +95,31 @@ export function createControlsManager(
             actions.onSetVars({ [stateVar]: !isOn });
             execAction(isOn ? p.OnClick : p.OffClick, actions);
           });
+        } else if (el.type === 'Elements.CheckBox') {
+          const inp = document.getElementById(`cbi_${el.id}`) as HTMLInputElement | null;
+          if (!inp) return;
+          const vn = (p.Variable || '').trim();
+          inp.checked = (p.Checked || '').trim() === 'true';
+          if (vn && !IDENT.test(vn)) return;
+          inp.addEventListener('change', () => {
+            if (vn) actions.onSetVars({ [vn]: inp.checked });
+            execAction(p.OnChange, actions);
+          });
+        } else if (el.type === 'Elements.ParsedField') {
+          const fld = document.getElementById(`pf_${el.id}`) as HTMLInputElement | null;
+          if (!fld || fld.readOnly) return;
+          // Typing a number writes it back to the variable shown in the field.
+          const vn = (p.Value || '').trim();
+          fld.addEventListener('change', () => {
+            const num = parseFloat(fld.value);
+            if (!Number.isFinite(num)) return;
+            if (IDENT.test(vn)) actions.onSetVars({ [vn]: num });
+            execAction(p.OnChange, actions);
+            fld.blur();
+          });
+          fld.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') fld.blur();
+          });
         }
       });
     },
@@ -96,16 +137,33 @@ export function createControlsManager(
           btn.textContent = isOn ? '▶ 播放' : '⏸ 暫停';
           btn.style.background = isOn ? '#2A9D8F' : '#E9A23B';
         } else if (el.type === 'Elements.ParsedField') {
-          const fld = document.getElementById(`pf_${el.id}`);
-          if (!fld) return;
+          const fld = document.getElementById(`pf_${el.id}`) as HTMLInputElement | null;
+          // Leave the field alone while the user is typing in it.
+          if (!fld || document.activeElement === fld) return;
           const exprFn = compiledExprs.get(`pf:${el.id}`);
           if (exprFn) {
             try {
               const val = exprFn(viewVars);
-              fld.textContent = typeof val === 'number' ? val.toFixed(2) : String(val ?? '');
+              const text = typeof val === 'number' ? val.toFixed(formatDecimals(p.Format)) : String(val ?? '');
+              if (fld.value !== text) fld.value = text;
             } catch {
               // ignore eval error
             }
+          }
+        } else if (el.type === 'Elements.CheckBox') {
+          const vn = (p.Variable || '').trim();
+          const inp = document.getElementById(`cbi_${el.id}`) as HTMLInputElement | null;
+          if (inp && vn && viewVars[vn] !== undefined) inp.checked = Boolean(viewVars[vn]);
+        } else if (el.type === 'Elements.Label') {
+          // Text is an expression such as "速度：" + vx; plain text is shown as is.
+          const fn = compiledExprs.get(`lbl:${el.id}`);
+          const lbl = document.getElementById(`lbl_${el.id}`);
+          if (!fn || !lbl) return;
+          try {
+            const text = labelText(fn(viewVars));
+            if (lbl.textContent !== text) lbl.textContent = text;
+          } catch {
+            // not an expression: keep the literal text
           }
         } else if (el.type === 'Elements.Slider') {
           const vn = p.Variable || '';

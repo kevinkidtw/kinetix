@@ -13,7 +13,7 @@ export default function VariableBlock({ variable }: { variable: SimulationVariab
   const { updateVariable, removeVariable } = useSimulationStore();
 
   return (
-    <div className="bg-card border border-line border-l-4 border-l-amber rounded-card p-3 shadow-xs hover:border-line/80 transition-all select-none mb-3">
+    <div data-block-id={variable.id} className="bg-card border border-line border-l-4 border-l-amber rounded-card p-3 shadow-xs hover:border-line/80 transition-all select-none mb-3">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-amber text-sm flex-shrink-0" title="模型變數">📦</span>
         {/* 名稱 */}

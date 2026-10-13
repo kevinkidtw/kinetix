@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Cpu,
   Gauge,
+  MousePointerClick,
 } from 'lucide-react';
 import { useSimulationStore } from '../../store/simulationStore';
 import { buildPreviewHTML, computeSimBBox } from '../../utils/simulationRunner';
@@ -19,6 +20,9 @@ export default function StagePanel() {
   const [running, setRunning] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
+  // Pick mode: clicking an element in the preview selects it in the element list.
+  const [picking, setPicking] = useState(false);
+  const pickingRef = useRef(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   // Height requested by the runtime when it re-flows for a narrow (phone) width.
   const [contentHeight, setContentHeight] = useState<number | null>(null);
@@ -33,17 +37,24 @@ export default function StagePanel() {
   });
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Mirrors `speed` for the message handler (set in handleSpeedChange).
+  const speedRef = useRef(1);
+  const { selectedElementId } = store;
 
+  // Reads the store directly so that the callback stays stable: selecting an
+  // element or editing the handout must not rebuild (and restart) the preview.
   const buildAndLoad = useCallback(() => {
+    const s = useSimulationStore.getState();
     const html = buildPreviewHTML({
-      info: store.info,
-      description: store.description,
-      variables: store.variables,
-      odePages: store.odePages,
-      constraintPages: store.constraintPages,
-      initPages: store.initPages,
-      viewElements: store.viewElements,
-      isLocked: store.isLocked,
+      info: s.info,
+      description: s.description,
+      variables: s.variables,
+      odePages: s.odePages,
+      constraintPages: s.constraintPages,
+      initPages: s.initPages,
+      viewElements: s.viewElements,
+      isLocked: s.isLocked,
     });
     if (iframeRef.current) {
       iframeRef.current.srcdoc = html;
@@ -51,7 +62,7 @@ export default function StagePanel() {
       setRunning(false);
       setDiagnostics([]);
     }
-  }, [store]);
+  }, []);
 
   // Auto-preview with 300ms debounce whenever model changes
   useEffect(() => {
@@ -83,14 +94,66 @@ export default function StagePanel() {
     buildAndLoad,
   ]);
 
+  const sendMsg = (msg: string | { type: string; [key: string]: unknown }) => {
+    iframeRef.current?.contentWindow?.postMessage(msg, '*');
+  };
+
+  // Highlight the element selected in the element list inside the preview.
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage({ type: 'ejss:highlight', id: selectedElementId }, '*');
+  }, [selectedElementId]);
+
+  const setPickMode = useCallback((on: boolean) => {
+    pickingRef.current = on;
+    setPicking(on);
+    iframeRef.current?.contentWindow?.postMessage({ type: 'ejss:pickMode', on }, '*');
+  }, []);
+  const togglePicking = () => setPickMode(!pickingRef.current);
+
+  // Esc ends pick mode (clicks in the preview keep keyboard focus out here).
+  useEffect(() => {
+    if (!picking) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPickMode(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picking, setPickMode]);
+
   // Listen to messages from iframe
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       const data = e.data;
       if (!data || typeof data !== 'object') return;
       if (e.source !== iframeRef.current?.contentWindow) return;
+      const reply = (msg: { type: string; [key: string]: unknown }) =>
+        iframeRef.current?.contentWindow?.postMessage(msg, '*');
 
-      if (data.type === 'csvData') {
+      if (data.type === 'ejss:ready') {
+        // A rebuilt preview starts from defaults: restore speed and selection.
+        if (speedRef.current !== 1) reply({ type: 'ejss:setSpeed', speed: speedRef.current });
+        const id = useSimulationStore.getState().selectedElementId;
+        if (id) reply({ type: 'ejss:highlight', id });
+        if (pickingRef.current) reply({ type: 'ejss:pickMode', on: true });
+      } else if (data.type === 'ejss:pick') {
+        if (typeof data.id === 'string') useSimulationStore.getState().setSelectedElement(data.id);
+      } else if (data.type === 'ejss:pickExit') {
+        setPickMode(false);
+      } else if (data.type === 'ejss:highlightRect') {
+        // Scroll the stage so the highlighted element is in view.
+        const box = scrollRef.current;
+        const frame = iframeRef.current;
+        if (box && frame && typeof data.top === 'number' && typeof data.bottom === 'number') {
+          const view = box.getBoundingClientRect();
+          const off = frame.getBoundingClientRect().top;
+          const top = off + data.top;
+          const bottom = off + data.bottom;
+          if (top < view.top || bottom > view.bottom) {
+            const alignTop = top < view.top || bottom - top > view.height;
+            box.scrollBy({ top: alignTop ? top - view.top - 8 : bottom - view.bottom + 8, behavior: 'smooth' });
+          }
+        }
+      } else if (data.type === 'csvData') {
         const { csv, title } = data;
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -115,11 +178,7 @@ export default function StagePanel() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  const sendMsg = (msg: string | { type: string; [key: string]: unknown }) => {
-    iframeRef.current?.contentWindow?.postMessage(msg, '*');
-  };
+  }, [setPickMode]);
 
   const handlePlay = () => {
     if (!loaded) buildAndLoad();
@@ -146,6 +205,7 @@ export default function StagePanel() {
 
   const handleSpeedChange = (newSpeed: number) => {
     setSpeed(newSpeed);
+    speedRef.current = newSpeed;
     sendMsg({ type: 'ejss:setSpeed', speed: newSpeed });
   };
 
@@ -155,7 +215,7 @@ export default function StagePanel() {
   const bbox = computeSimBBox(store.viewElements);
 
   return (
-    <div className="flex flex-col h-full bg-[#FAF8F3] overflow-y-auto text-[#2B2D31]">
+    <div ref={scrollRef} className="flex flex-col h-full bg-[#FAF8F3] overflow-y-auto text-[#2B2D31]">
       {/* Top Toolbar */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-[#FFFFFF] border-b border-[#E5E1D8] flex-shrink-0">
         <span className="hidden sm:inline text-xs font-bold text-[#2B2D31] mr-1 tracking-wide truncate max-w-[140px]">
@@ -181,6 +241,22 @@ export default function StagePanel() {
 
         {/* Action Controls */}
         <div className="flex gap-1.5">
+          {!store.isLocked && (
+            <button
+              onClick={togglePicking}
+              disabled={!loaded}
+              aria-pressed={picking}
+              title={picking ? '結束點選（Esc）' : '在模擬畫面上點一下元件，就會在元件列表中選取它'}
+              className={`flex items-center gap-1 rounded-[10px] px-2.5 py-1 text-xs font-semibold transition-all active:scale-[0.98] shadow-sm cursor-pointer border disabled:opacity-40 disabled:cursor-not-allowed ${
+                picking
+                  ? 'bg-[#2F6FB0] border-[#2F6FB0] text-white'
+                  : 'bg-white border-[#E5E1D8] text-[#2B2D31] hover:bg-[#FAF8F3]'
+              }`}
+            >
+              <MousePointerClick className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{picking ? '點選中' : '點選元件'}</span>
+            </button>
+          )}
           <button
             onClick={handlePlay}
             disabled={!hasContent}
@@ -227,6 +303,13 @@ export default function StagePanel() {
         </div>
       </div>
 
+      {picking && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EAF1F9] border-b border-[#E5E1D8] text-[11px] text-[#2F6FB0] flex-shrink-0">
+          <MousePointerClick className="w-3.5 h-3.5 flex-shrink-0" />
+          點一下模擬畫面中的元件即可選取並開啟它的設定；點選期間按鈕、滑桿與拖曳暫停作用，按 Esc 或再按一次「點選中」結束。
+        </div>
+      )}
+
       {/* Stage Container */}
       <div
         className="w-full flex-shrink-0 relative bg-[#FFFFFF] border-b border-[#E5E1D8]"
@@ -270,7 +353,7 @@ export default function StagePanel() {
             </span>
           </span>
           <span className="hidden sm:inline">
-            步數/秒: <span className="font-mono text-[#2B2D31]">{statusInfo.perf.stepsPerSec}</span>
+            步數/秒: <span className="font-mono text-[#2B2D31]">{Math.round(statusInfo.perf.stepsPerSec)}</span>
           </span>
           <span className="hidden md:inline">
             即時比:{' '}
