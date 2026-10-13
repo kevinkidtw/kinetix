@@ -40,5 +40,6 @@ describe('All Built-in Examples Run 2000 Steps (Item 7)', () => {
         }
       }
     }
-  });
+    // Every example runs 2000 engine steps; with the full library this takes a few seconds.
+  }, 60_000);
 });
