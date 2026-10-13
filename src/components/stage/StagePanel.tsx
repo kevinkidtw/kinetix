@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Cpu,
   Gauge,
+  MousePointerClick,
 } from 'lucide-react';
 import { useSimulationStore } from '../../store/simulationStore';
 import { buildPreviewHTML, computeSimBBox } from '../../utils/simulationRunner';
@@ -19,6 +20,9 @@ export default function StagePanel() {
   const [running, setRunning] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
+  // Pick mode: clicking an element in the preview selects it in the element list.
+  const [picking, setPicking] = useState(false);
+  const pickingRef = useRef(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   // Height requested by the runtime when it re-flows for a narrow (phone) width.
   const [contentHeight, setContentHeight] = useState<number | null>(null);
@@ -99,6 +103,23 @@ export default function StagePanel() {
     iframeRef.current?.contentWindow?.postMessage({ type: 'ejss:highlight', id: selectedElementId }, '*');
   }, [selectedElementId]);
 
+  const setPickMode = useCallback((on: boolean) => {
+    pickingRef.current = on;
+    setPicking(on);
+    iframeRef.current?.contentWindow?.postMessage({ type: 'ejss:pickMode', on }, '*');
+  }, []);
+  const togglePicking = () => setPickMode(!pickingRef.current);
+
+  // Esc ends pick mode (clicks in the preview keep keyboard focus out here).
+  useEffect(() => {
+    if (!picking) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPickMode(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picking, setPickMode]);
+
   // Listen to messages from iframe
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
@@ -113,6 +134,11 @@ export default function StagePanel() {
         if (speedRef.current !== 1) reply({ type: 'ejss:setSpeed', speed: speedRef.current });
         const id = useSimulationStore.getState().selectedElementId;
         if (id) reply({ type: 'ejss:highlight', id });
+        if (pickingRef.current) reply({ type: 'ejss:pickMode', on: true });
+      } else if (data.type === 'ejss:pick') {
+        if (typeof data.id === 'string') useSimulationStore.getState().setSelectedElement(data.id);
+      } else if (data.type === 'ejss:pickExit') {
+        setPickMode(false);
       } else if (data.type === 'ejss:highlightRect') {
         // Scroll the stage so the highlighted element is in view.
         const box = scrollRef.current;
@@ -152,7 +178,7 @@ export default function StagePanel() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [setPickMode]);
 
   const handlePlay = () => {
     if (!loaded) buildAndLoad();
@@ -215,6 +241,22 @@ export default function StagePanel() {
 
         {/* Action Controls */}
         <div className="flex gap-1.5">
+          {!store.isLocked && (
+            <button
+              onClick={togglePicking}
+              disabled={!loaded}
+              aria-pressed={picking}
+              title={picking ? '結束點選（Esc）' : '在模擬畫面上點一下元件，就會在元件列表中選取它'}
+              className={`flex items-center gap-1 rounded-[10px] px-2.5 py-1 text-xs font-semibold transition-all active:scale-[0.98] shadow-sm cursor-pointer border disabled:opacity-40 disabled:cursor-not-allowed ${
+                picking
+                  ? 'bg-[#2F6FB0] border-[#2F6FB0] text-white'
+                  : 'bg-white border-[#E5E1D8] text-[#2B2D31] hover:bg-[#FAF8F3]'
+              }`}
+            >
+              <MousePointerClick className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{picking ? '點選中' : '點選元件'}</span>
+            </button>
+          )}
           <button
             onClick={handlePlay}
             disabled={!hasContent}
@@ -260,6 +302,13 @@ export default function StagePanel() {
           </button>
         </div>
       </div>
+
+      {picking && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EAF1F9] border-b border-[#E5E1D8] text-[11px] text-[#2F6FB0] flex-shrink-0">
+          <MousePointerClick className="w-3.5 h-3.5 flex-shrink-0" />
+          點一下模擬畫面中的元件即可選取並開啟它的設定；點選期間按鈕、滑桿與拖曳暫停作用，按 Esc 或再按一次「點選中」結束。
+        </div>
+      )}
 
       {/* Stage Container */}
       <div

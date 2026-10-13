@@ -195,6 +195,9 @@ const COMMON_CSS = `
   /* Element selected in the editor's element list */
   .sim-hl { outline: 3px solid #E9A23B !important; outline-offset: 2px; box-shadow: 0 0 0 7px rgba(233,162,59,0.22) !important; z-index: 5; animation: sim-hl-pulse 1.6s ease-in-out infinite; }
   @keyframes sim-hl-pulse { 50% { outline-color: rgba(233,162,59,0.45); } }
+  /* Pick mode: hovering shows what a click would select in the editor */
+  body.sim-picking, body.sim-picking * { cursor: crosshair !important; }
+  .sim-hover:not(.sim-hl) { outline: 2px dashed #2F6FB0 !important; outline-offset: 2px; z-index: 4; }
   .sim-slider {
     display: flex;
     flex-direction: column;

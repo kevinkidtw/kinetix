@@ -284,25 +284,27 @@ export async function startHost(): Promise<void> {
     y0: number,
     x1: number,
     y1: number,
-    name: string
+    name: string,
+    hover = false
   ) {
     const pad = 7;
     const l = Math.min(x0, x1) - pad;
     const t = Math.min(y0, y1) - pad;
     const w = Math.abs(x1 - x0) + 2 * pad;
     const h = Math.abs(y1 - y0) + 2 * pad;
+    const color = hover ? '#2F6FB0' : '#E9A23B';
     ctx.save();
-    ctx.fillStyle = 'rgba(233,162,59,0.14)';
+    ctx.fillStyle = hover ? 'rgba(47,111,176,0.10)' : 'rgba(233,162,59,0.14)';
     ctx.fillRect(l, t, w, h);
     ctx.setLineDash([6, 4]);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#E9A23B';
+    ctx.strokeStyle = color;
     ctx.strokeRect(l, t, w, h);
     ctx.setLineDash([]);
     ctx.font = '600 12px system-ui, sans-serif';
     const tw = ctx.measureText(name).width + 10;
     const ty = t - 20 < 0 ? t + h + 2 : t - 20;
-    ctx.fillStyle = '#E9A23B';
+    ctx.fillStyle = color;
     ctx.fillRect(l, ty, tw, 18);
     ctx.fillStyle = '#FFFFFF';
     ctx.textBaseline = 'middle';
@@ -379,6 +381,128 @@ export async function startHost(): Promise<void> {
     requestRender();
   }
 
+  // ── Pick mode: click an element in the preview to select it in the editor ──
+  // While it is on, clicks never reach controls or drag handlers; hovering
+  // outlines the element a click would pick.
+  let pickMode = false;
+  let hoverId: string | null = null;
+  let hoverEl: HTMLElement | null = null;
+
+  function distToSegment(px: number, py: number, x0: number, y0: number, x1: number, y1: number) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len2 = dx * dx + dy * dy;
+    const u = len2 ? Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / len2)) : 0;
+    return Math.hypot(px - (x0 + u * dx), py - (y0 + u * dy));
+  }
+
+  /** Topmost element drawn on `panel` at canvas pixel (px, py). */
+  function pickOnPanel(panel: DrawingPanelState, px: number, py: number): string {
+    const helpers = getDrawingHelpers(panel);
+    const els = model!.viewElements.filter((el) => getPanelForEl(el.parent) === panel);
+    for (let i = els.length - 1; i >= 0; i--) {
+      const el = els[i];
+      if (!CANVAS_SHAPE_TYPES.has(el.type)) continue;
+      const visible = compiledExprs.get(`el:${el.id}:Visible`);
+      try {
+        if (visible && !visible(viewVars)) continue;
+      } catch {
+        // drawn as visible when the expression fails, so pickable too
+      }
+      const b = highlightBoxOf(el, helpers);
+      if (!b) continue;
+      const [x0, y0, x1, y1] = b;
+      if (el.type === 'Elements.Shape2D') {
+        if (px >= Math.min(x0, x1) - 4 && px <= Math.max(x0, x1) + 4 && py >= Math.min(y0, y1) - 4 && py <= Math.max(y0, y1) + 4) return el.id;
+      } else if (el.type === 'Elements.Trail2D') {
+        const pts = trailBuffers.get(el.id) ?? [];
+        for (let k = 1; k < pts.length; k++) {
+          const d = distToSegment(
+            px, py,
+            helpers.toPixX(pts[k - 1][0]), helpers.toPixY(pts[k - 1][1]),
+            helpers.toPixX(pts[k][0]), helpers.toPixY(pts[k][1])
+          );
+          if (d <= 6) return el.id;
+        }
+      } else if (distToSegment(px, py, x0, y0, x1, y1) <= 8) {
+        return el.id;
+      }
+    }
+    // Nothing specific under the pointer: custom drawing on this panel, else the panel.
+    const custom = els.filter((el) => el.type === 'Elements.CustomDraw').at(-1);
+    return custom?.id ?? panel.id;
+  }
+
+  function pickAt(e: MouseEvent): string | null {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target) return null;
+    const panel = drawingPanels.find((p) => p.canvas === target);
+    if (panel) {
+      const r = panel.canvas.getBoundingClientRect();
+      const px = ((e.clientX - r.left) * panel.logicalW) / (r.width || 1);
+      const py = ((e.clientY - r.top) * panel.logicalH) / (r.height || 1);
+      return pickOnPanel(panel, px, py);
+    }
+    return target.closest<HTMLElement>('[data-el]')?.dataset.el ?? null;
+  }
+
+  function setHover(id: string | null) {
+    if (id === hoverId) return;
+    hoverId = id;
+    hoverEl?.classList.remove('sim-hover');
+    hoverEl = null;
+    const el = id ? model!.viewElements.find((v) => v.id === id) : undefined;
+    // Shapes drawn on a canvas get their hover box in renderAll instead.
+    if (el && !CANVAS_SHAPE_TYPES.has(el.type)) {
+      hoverEl =
+        document.querySelector<HTMLElement>(`[data-el="${CSS.escape(el.id)}"]`) ??
+        getPanelForEl(el.parent)?.canvas ??
+        null;
+      hoverEl?.classList.add('sim-hover');
+    }
+    requestRender();
+  }
+
+  function setPickMode(on: boolean) {
+    pickMode = on;
+    document.body.classList.toggle('sim-picking', on);
+    if (!on) setHover(null);
+  }
+
+  const swallow = (e: Event) => {
+    if (!pickMode) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+  for (const type of ['mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend', 'wheel']) {
+    window.addEventListener(type, swallow, { capture: true, passive: false });
+  }
+  window.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (!pickMode) return;
+      swallow(e);
+      const id = pickAt(e);
+      if (id && window.parent !== window) window.parent.postMessage({ type: 'ejss:pick', id }, '*');
+    },
+    { capture: true }
+  );
+  window.addEventListener(
+    'pointermove',
+    (e) => {
+      if (!pickMode) return;
+      e.stopImmediatePropagation();
+      setHover(pickAt(e));
+    },
+    { capture: true }
+  );
+  document.documentElement.addEventListener('mouseleave', () => setHover(null));
+  window.addEventListener('keydown', (e) => {
+    if (pickMode && e.key === 'Escape' && window.parent !== window) {
+      window.parent.postMessage({ type: 'ejss:pickExit' }, '*');
+    }
+  });
+
   // 7. Render function
   function renderAll() {
     let hlDrawn = false;
@@ -447,6 +571,10 @@ export async function startHost(): Promise<void> {
         } else if (el.type === 'Elements.Trail2D') {
           const pts = trailBuffers.get(el.id) ?? [];
           drawTrail2D(panel.ctx, helpers, pts, p.LineColor);
+        }
+        if (el.id === hoverId && el.id !== highlightId && CANVAS_SHAPE_TYPES.has(el.type)) {
+          const b = highlightBoxOf(el, helpers);
+          if (b) drawHighlightBox(panel.ctx, b[0], b[1], b[2], b[3], el.name, true);
         }
         if (el.id === highlightId && CANVAS_SHAPE_TYPES.has(el.type)) {
           hlPanel = panel;
@@ -763,6 +891,8 @@ export async function startHost(): Promise<void> {
         setViewVars(data.patch);
       } else if (data.type === 'ejss:highlight') {
         applyHighlight(typeof data.id === 'string' ? data.id : null);
+      } else if (data.type === 'ejss:pickMode') {
+        setPickMode(Boolean(data.on));
       }
     }
   });

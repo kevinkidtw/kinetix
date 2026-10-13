@@ -73,6 +73,14 @@ export default function SpriteList() {
   const [showModal, setShowModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
+  // Keep the selected element in view, e.g. after picking it in the preview.
+  useEffect(() => {
+    if (!selectedElementId) return;
+    document
+      .querySelector(`[data-sprite-id="${CSS.escape(selectedElementId)}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedElementId]);
+
   const topLevel = viewElements.filter((e) => !e.parent || !viewElements.find((p) => p.name === e.parent));
   const childrenOf = (parentName: string) => viewElements.filter((e) => e.parent === parentName);
 
@@ -109,6 +117,7 @@ export default function SpriteList() {
               return (
                 <div key={el.id}>
                   <div
+                    data-sprite-id={el.id}
                     onClick={() => setSelectedElement(isSelected ? null : el.id)}
                     onContextMenu={(e) => handleContextMenu(e, el.id)}
                     className={`relative flex items-center gap-2 rounded-control border-2 cursor-pointer transition-all px-2.5 py-1.5 min-h-[38px]
@@ -135,6 +144,7 @@ export default function SpriteList() {
                         return (
                           <div
                             key={child.id}
+                            data-sprite-id={child.id}
                             onClick={() => setSelectedElement(cSelected ? null : child.id)}
                             onContextMenu={(e) => handleContextMenu(e, child.id)}
                             className={`relative flex items-center gap-2 rounded-control border cursor-pointer transition-all px-2 py-1 min-h-[34px]
