@@ -5,6 +5,7 @@ import FOUNDATION_EXAMPLES from './foundations';
 import MECHANICS_EXAMPLES from './mechanics';
 import MECHANICS2_EXAMPLES from './mechanics2';
 import MODERN_EXAMPLES from './modern';
+import OPTICS_EXAMPLES from './optics';
 import THERMAL_EXAMPLES from './thermal';
 import WAVE_EXAMPLES from './waves';
 import type { ExampleDef } from './types';
@@ -19,6 +20,7 @@ const EXAMPLES: ExampleDef[] = [
   ...MECHANICS2_EXAMPLES,
   ...DYNAMICS_EXAMPLES,
   ...WAVE_EXAMPLES,
+  ...OPTICS_EXAMPLES,
   ...THERMAL_EXAMPLES,
   ...EM_EXAMPLES,
   ...MODERN_EXAMPLES,
