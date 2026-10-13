@@ -1,4 +1,5 @@
 import CLASSIC_EXAMPLES from './classic';
+import DYNAMICS_EXAMPLES from './dynamics';
 import EM_EXAMPLES from './electromagnetism';
 import FOUNDATION_EXAMPLES from './foundations';
 import MECHANICS_EXAMPLES from './mechanics';
@@ -16,6 +17,7 @@ const EXAMPLES: ExampleDef[] = [
   ...CLASSIC_EXAMPLES,
   ...MECHANICS_EXAMPLES,
   ...MECHANICS2_EXAMPLES,
+  ...DYNAMICS_EXAMPLES,
   ...WAVE_EXAMPLES,
   ...THERMAL_EXAMPLES,
   ...EM_EXAMPLES,
