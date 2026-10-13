@@ -103,6 +103,15 @@ export default function DescriptionEditor() {
     tr:nth-child(even) {
       background: #FAF8F3;
     }
+    table { display: block; max-width: 100%; overflow-x: auto; }
+    .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+    img { max-width: 100%; }
+    @media (max-width: 640px) {
+      body { padding: 14px 14px 32px; font-size: 15px; }
+      h1 { font-size: 1.45em; }
+      h2 { font-size: 1.25em; }
+      th, td { padding: 6px 8px; }
+    }
   </style>
 </head>
 <body>
@@ -163,12 +172,12 @@ export default function DescriptionEditor() {
             {activeSubTab === 'preview' ? (
               <>
                 <FileText className="w-4 h-4 text-primary" />
-                <span className="text-xs font-bold text-ink">模擬實驗講義 (預覽)</span>
+                <span className="text-xs font-bold text-ink">模擬實驗講義<span className="hidden sm:inline"> (預覽)</span></span>
               </>
             ) : (
               <>
                 <Edit3 className="w-4 h-4 text-primary animate-pulse" />
-                <span className="text-xs font-bold text-ink">編輯模擬實驗講義 (Markdown)</span>
+                <span className="text-xs font-bold text-ink">編輯講義<span className="hidden sm:inline"> (Markdown)</span></span>
               </>
             )}
           </div>
@@ -196,7 +205,7 @@ export default function DescriptionEditor() {
 
         {/* Terminology & Storage Info Banner */}
         {activeSubTab === 'edit' && (
-          <div className="flex-shrink-0 bg-primary-soft/60 border-b border-line px-4 py-2.5 text-xs text-ink flex items-start gap-2.5 leading-relaxed">
+          <div className="flex-shrink-0 bg-primary-soft/60 border-b border-line px-4 py-2.5 text-xs text-ink hidden sm:flex items-start gap-2.5 leading-relaxed">
             <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
             <div>
               <span className="font-bold text-primary">💡 模擬實驗講義三位一體去向：</span>

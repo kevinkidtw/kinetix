@@ -34,9 +34,9 @@ export default function AddElementModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-ink/40 backdrop-blur-xs flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-ink/40 backdrop-blur-xs flex items-center justify-center z-50 p-3" onClick={onClose}>
       <div
-        className="bg-card border border-line rounded-card shadow-2xl w-[580px] max-h-[85vh] flex flex-col overflow-hidden"
+        className="bg-card border border-line rounded-card shadow-2xl w-full max-w-[580px] max-h-[85vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 bg-paper border-b border-line flex-shrink-0">
@@ -48,7 +48,7 @@ export default function AddElementModal({ onClose }: Props) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-5 overflow-y-auto grid grid-cols-3 gap-3 bg-card">
+        <div className="p-3 sm:p-5 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 bg-card">
           {ELEMENT_TYPE_LIST.map((meta) => (
             <button
               key={meta.type}

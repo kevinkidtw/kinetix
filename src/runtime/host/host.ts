@@ -642,7 +642,39 @@ export async function startHost(): Promise<void> {
   window._simRender = renderAll;
   window._simSetVars = setViewVars;
 
-  // 14. Responsive scaling for High-DPI screens
+  // 14. Responsive layout.
+  // Wide containers: the whole simulation is scaled uniformly to fit.
+  // Narrow containers (phones): panels are scaled to the container width and
+  // the controls are re-flowed into full-size rows so they stay readable and
+  // tappable. The resulting height is applied to the container (export page)
+  // or reported to the embedding editor, which sizes the iframe to match.
+  const NARROW_MAX_W = 480;
+  const NARROW_ROW_H = 52;
+  let reportedHeight: number | null | undefined;
+
+  function reflowControls(panel: HTMLElement, width: number): number {
+    const items = Array.from(panel.children).filter(
+      (c): c is HTMLElement => c instanceof HTMLElement && c.hasAttribute('data-w')
+    );
+    if (!items.length) return 0;
+    const pad = 8;
+    const gap = 6;
+    const cols = width < 360 ? 1 : 2;
+    const colW = (width - 2 * pad - gap * (cols - 1)) / cols;
+    items.forEach((el, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      el.style.left = `${pad + col * (colW + gap)}px`;
+      el.style.top = `${pad + row * (NARROW_ROW_H + gap)}px`;
+      el.style.width = `${colW}px`;
+      el.style.height = `${NARROW_ROW_H}px`;
+      const fs = el.getAttribute('data-fs');
+      if (fs) el.style.fontSize = `${Math.max(14, parseFloat(fs))}px`;
+    });
+    const rows = Math.ceil(items.length / cols);
+    return 2 * pad + rows * NARROW_ROW_H + (rows - 1) * gap;
+  }
+
   function resizeAll() {
     const root = document.getElementById('sim-root');
     if (!root) return;
@@ -650,16 +682,33 @@ export async function startHost(): Promise<void> {
     const bbwAttr = parseFloat(root.getAttribute('data-w') || '400') || 400;
     const bbhAttr = parseFloat(root.getAttribute('data-h') || '400') || 400;
 
-    const w = window.innerWidth || document.documentElement.clientWidth || 0;
-    const h = window.innerHeight || document.documentElement.clientHeight || 0;
-    if (!w || !h) return;
+    // Measure the element the simulation lives in: the iframe body in the
+    // editor preview, the stage wrapper in an exported page.
+    const container = root.parentElement ?? document.body;
+    const inBody = container === document.body;
+    const w = inBody
+      ? window.innerWidth || document.documentElement.clientWidth || 0
+      : container.clientWidth;
+    if (!w) return;
+    const narrow = w < NARROW_MAX_W;
+    if (!narrow && !inBody) container.style.height = '';
+    const h = inBody
+      ? window.innerHeight || document.documentElement.clientHeight || 0
+      : container.clientHeight;
+    if (!narrow && !h) return;
 
-    let s = Math.min(w / bbwAttr, h / bbhAttr);
+    let s = narrow ? w / bbwAttr : Math.min(w / bbwAttr, h / bbhAttr);
     if (!s || s < 0.05 || !Number.isFinite(s)) s = 1;
+
+    const ctrlPanel = document.getElementById('ctrl-panel');
+    const chartPanel = document.getElementById('chart-panel');
+    const mainPanel = document.getElementById('main-panel');
 
     // Scale absolute sizes & positions
     const els = document.querySelectorAll<HTMLElement>('#sim-root, #sim-root [data-w]');
+    root.classList.toggle('narrow', narrow);
     els.forEach((el) => {
+      if (narrow && ctrlPanel && ctrlPanel.contains(el)) return;
       const ox = parseFloat(el.getAttribute('data-x') || '0');
       const oy = parseFloat(el.getAttribute('data-y') || '0');
       const ow = parseFloat(el.getAttribute('data-w') || '0');
@@ -675,41 +724,85 @@ export async function startHost(): Promise<void> {
       }
     });
 
+    // Text inside controls (slider label & value) carries data-fs only.
+    document.querySelectorAll<HTMLElement>('#sim-root [data-fs]:not([data-w])').forEach((el) => {
+      const fs = parseFloat(el.getAttribute('data-fs') || '0');
+      const inCtrl = narrow && ctrlPanel?.contains(el);
+      el.style.fontSize = `${inCtrl ? Math.max(13, fs) : fs * s}px`;
+    });
+
+    let contentH = bbhAttr * s;
+    if (narrow) {
+      const mainH = parseFloat(mainPanel?.getAttribute('data-h') || '0') * s;
+      let ctrlH = 0;
+      if (ctrlPanel) {
+        ctrlH = reflowControls(ctrlPanel, w);
+        ctrlPanel.style.left = '0px';
+        ctrlPanel.style.top = `${mainH}px`;
+        ctrlPanel.style.width = `${w}px`;
+        ctrlPanel.style.height = `${ctrlH}px`;
+      }
+      const chartH = parseFloat(chartPanel?.getAttribute('data-h') || '0') * s;
+      if (chartPanel) chartPanel.style.top = `${mainH + ctrlH}px`;
+      contentH = mainH + ctrlH + chartH;
+      root.style.height = `${contentH}px`;
+      if (!inBody) container.style.height = `${Math.ceil(contentH)}px`;
+    }
+
+    const report = narrow ? Math.ceil(contentH) : null;
+    if (report !== reportedHeight) {
+      reportedHeight = report;
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'ejss:contentHeight', height: report }, '*');
+      }
+    }
+
     // Resize canvas buffers
     const dpr = window.devicePixelRatio || 1;
 
-    drawingPanels.forEach((panel) => {
+    // Canvases keep their design size as the drawing coordinate system and
+    // are scaled as a whole, so text and pixel-positioned drawings in
+    // CustomDraw code keep their layout at any screen size.
+    [...drawingPanels, ...plottingPanels].forEach((panel) => {
       const c = panel.canvas;
-      const ow = parseFloat(c.getAttribute('data-w') || '0') * s;
-      const oh = parseFloat(c.getAttribute('data-h') || '0') * s;
+      const ow = parseFloat(c.getAttribute('data-w') || '0');
+      const oh = parseFloat(c.getAttribute('data-h') || '0');
       if (ow > 0 && oh > 0) {
-        c.width = ow * dpr;
-        c.height = oh * dpr;
+        c.width = Math.round(ow * s * dpr);
+        c.height = Math.round(oh * s * dpr);
         panel.logicalW = ow;
         panel.logicalH = oh;
         const ctx = c.getContext('2d')!;
-        ctx.scale(dpr, dpr);
-      }
-    });
-
-    plottingPanels.forEach((panel) => {
-      const c = panel.canvas;
-      const ow = parseFloat(c.getAttribute('data-w') || '0') * s;
-      const oh = parseFloat(c.getAttribute('data-h') || '0') * s;
-      if (ow > 0 && oh > 0) {
-        c.width = ow * dpr;
-        c.height = oh * dpr;
-        panel.logicalW = ow;
-        panel.logicalH = oh;
-        const ctx = c.getContext('2d')!;
-        ctx.scale(dpr, dpr);
+        ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
       }
     });
 
     renderAll();
   }
 
-  window.addEventListener('resize', resizeAll);
+  let resizeQueued = false;
+  function queueResize() {
+    if (resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(() => {
+      resizeQueued = false;
+      resizeAll();
+    });
+  }
+
+  window.addEventListener('resize', queueResize);
+  const simRoot = document.getElementById('sim-root');
+  if (simRoot?.parentElement && simRoot.parentElement !== document.body && 'ResizeObserver' in window) {
+    // The exported page sizes the stage with CSS, which can change without a
+    // window resize (e.g. the layout switching between one and two columns).
+    let lastW = -1;
+    new ResizeObserver((entries) => {
+      const cw = entries[0]?.contentRect.width ?? 0;
+      if (Math.abs(cw - lastW) < 0.5) return;
+      lastW = cw;
+      queueResize();
+    }).observe(simRoot.parentElement);
+  }
   resizeAll();
   setTimeout(resizeAll, 50);
   setTimeout(resizeAll, 150);

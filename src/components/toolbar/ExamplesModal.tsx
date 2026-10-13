@@ -76,12 +76,12 @@ export default function ExamplesModal({ onClose }: Props) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-xs flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4"
       onMouseDown={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="bg-card border border-line rounded-card shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="bg-card border border-line sm:rounded-card shadow-2xl w-full max-w-3xl h-full sm:h-auto sm:max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line bg-paper flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 border-b border-line bg-paper flex-shrink-0">
           <div>
             <h2 className="text-ink font-bold text-base flex items-center gap-2">
               <Orbit className="w-5 h-5 text-primary animate-spin-slow" />
@@ -95,7 +95,7 @@ export default function ExamplesModal({ onClose }: Props) {
         </div>
 
         {/* Category filter */}
-        <div className="flex flex-wrap gap-1.5 px-5 py-3 border-b border-line bg-paper/40 flex-shrink-0">
+        <div className="flex flex-nowrap sm:flex-wrap gap-1.5 px-4 sm:px-5 py-3 border-b border-line bg-paper/40 flex-shrink-0 overflow-x-auto scrollbar-none">
           {(['all', ...EXAMPLE_CATEGORIES] as const).map((cat) => {
             const count = cat === 'all' ? EXAMPLES.length : EXAMPLES.filter((ex) => ex.category === cat).length;
             const active = category === cat;
@@ -103,7 +103,7 @@ export default function ExamplesModal({ onClose }: Props) {
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`text-xs px-2.5 py-1 rounded-control border transition-colors cursor-pointer ${
+                className={`text-xs px-2.5 py-1 min-h-[32px] whitespace-nowrap flex-shrink-0 rounded-control border transition-colors cursor-pointer ${
                   active
                     ? 'bg-primary text-white border-primary'
                     : 'bg-card text-ink-muted border-line hover:border-primary hover:text-primary'
@@ -117,7 +117,7 @@ export default function ExamplesModal({ onClose }: Props) {
         </div>
 
         {/* Example cards grouped by difficulty */}
-        <div className="overflow-y-auto flex-1 p-5 space-y-5 bg-card">
+        <div className="overflow-y-auto flex-1 p-3 sm:p-5 space-y-5 bg-card">
           {DIFFICULTY_LEVELS.map((level) => {
             const group = [...EXAMPLES]
               .filter((ex) => ex.difficulty === level && (category === 'all' || ex.category === category))
@@ -133,32 +133,32 @@ export default function ExamplesModal({ onClose }: Props) {
                   {group.map((ex) => (
                     <div
                       key={ex.id}
-                      className="bg-paper/60 border border-line hover:border-primary rounded-card p-4 flex gap-4 cursor-pointer transition-all hover:bg-card hover:shadow-xs group"
+                      className="bg-paper/60 border border-line hover:border-primary rounded-card p-3 sm:p-4 flex gap-3 sm:gap-4 cursor-pointer transition-all hover:bg-card hover:shadow-xs group"
                       onClick={() => load(ex.id)}
                     >
                       {(() => {
                         const meta = EXAMPLE_METADATA[ex.id];
                         const IconComp = meta ? meta.icon : Atom;
                         return (
-                          <div className={`flex-shrink-0 w-12 h-12 ${meta ? meta.bg : 'bg-paper border-line shadow-xs'} border rounded-control flex items-center justify-center transition-all group-hover:scale-105`}>
+                          <div className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 ${meta ? meta.bg : 'bg-paper border-line shadow-xs'} border rounded-control flex items-center justify-center transition-all group-hover:scale-105`}>
                             <IconComp className={`w-6 h-6 ${meta ? meta.color : 'text-ink-muted'}`} />
                           </div>
                         );
                       })()}
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
                           <span className="text-ink font-bold text-sm group-hover:text-primary transition-colors">{ex.info.title}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-control border border-line text-ink-muted">{ex.category}</span>
                         </div>
                         <p className="text-ink-muted text-xs leading-relaxed">{ex.listDescription}</p>
-                        <div className="flex gap-4 mt-2">
+                        <div className="hidden sm:flex gap-4 mt-2">
                           <span className="text-[10px] text-ink-muted font-mono">📦 {ex.variables.length} VARS</span>
                           <span className="text-[10px] text-ink-muted font-mono">⚡ {ex.odePages.length} ODE</span>
                           <span className="text-[10px] text-ink-muted font-mono">🎨 {ex.viewElements.filter(e => e.type !== 'Elements.DrawingPanel').length} SPRITES</span>
                         </div>
                       </div>
-                      <div className="flex-shrink-0 self-center text-ink-muted group-hover:text-primary transition-colors text-xs font-bold font-mono tracking-wider">
+                      <div className="hidden sm:block flex-shrink-0 self-center text-ink-muted group-hover:text-primary transition-colors text-xs font-bold font-mono tracking-wider">
                         LOAD →
                       </div>
                     </div>
