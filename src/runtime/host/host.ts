@@ -9,6 +9,7 @@ import type {
   VarBag,
 } from '../core/types';
 import { createControlsManager } from './controls';
+import { createDashboard, type Dashboard } from './dashboard';
 import { setupDragHandler } from './drag';
 import {
   type EngineProxy,
@@ -123,6 +124,8 @@ export async function startHost(): Promise<void> {
       compileExprSafe(`el:${el.id}:Visible`, p.Visible, el.id, 'Visible');
     } else if (el.type === 'Elements.ParsedField') {
       compileExprSafe(`pf:${el.id}`, p.Value, el.id, 'Value');
+    } else if (el.type === 'Elements.Readout') {
+      compileExprSafe(`ro:${el.id}`, p.Value, el.id, 'Value');
     }
   });
 
@@ -358,6 +361,7 @@ export async function startHost(): Promise<void> {
 
     // 7.3 Controls update
     controlsManager.update(viewVars);
+    dashboard?.update(viewVars);
 
     // Frame counter for FPS
     frameCount++;
@@ -404,8 +408,14 @@ export async function startHost(): Promise<void> {
     }
   }
 
-  // 9. Controls manager & drag handlers
+  // 9. Controls manager, data dashboard & drag handlers
   const controlsManager = createControlsManager(compiledExprs);
+  const dashboard: Dashboard | null = createDashboard(
+    document.getElementById('sim-dashboard'),
+    model.viewElements,
+    compiledExprs,
+    model.info.title
+  );
 
   const controlActions = {
     onPlay: () => doPlay(),
@@ -651,6 +661,24 @@ export async function startHost(): Promise<void> {
   const NARROW_MAX_W = 480;
   const NARROW_ROW_H = 52;
   let reportedHeight: number | null | undefined;
+  let simContentH = 0;
+
+  // Tell the embedding editor how tall the iframe content is (null = let it
+  // use the simulation's aspect ratio).
+  function reportHeight() {
+    const dashEl = dashboard?.el;
+    const inBodyDash = dashEl !== undefined && dashEl.parentElement === document.body;
+    if (inBodyDash) dashEl.style.top = `${simContentH}px`;
+    const narrowNow = document.getElementById('sim-root')?.classList.contains('narrow') ?? false;
+    const report =
+      narrowNow || inBodyDash ? Math.ceil(simContentH + (inBodyDash ? dashEl.offsetHeight : 0)) : null;
+    if (report !== reportedHeight) {
+      reportedHeight = report;
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'ejss:contentHeight', height: report }, '*');
+      }
+    }
+  }
 
   function reflowControls(panel: HTMLElement, width: number): number {
     const items = Array.from(panel.children).filter(
@@ -691,13 +719,17 @@ export async function startHost(): Promise<void> {
       : container.clientWidth;
     if (!w) return;
     const narrow = w < NARROW_MAX_W;
+    // In the editor preview the dashboard sits below the simulation inside
+    // the same iframe, so the iframe height follows the content: fit width.
+    const bodyDashboard = inBody && dashboard !== null;
+    const widthOnly = narrow || bodyDashboard;
     if (!narrow && !inBody) container.style.height = '';
     const h = inBody
       ? window.innerHeight || document.documentElement.clientHeight || 0
       : container.clientHeight;
-    if (!narrow && !h) return;
+    if (!widthOnly && !h) return;
 
-    let s = narrow ? w / bbwAttr : Math.min(w / bbwAttr, h / bbhAttr);
+    let s = widthOnly ? w / bbwAttr : Math.min(w / bbwAttr, h / bbhAttr);
     if (!s || s < 0.05 || !Number.isFinite(s)) s = 1;
 
     const ctrlPanel = document.getElementById('ctrl-panel');
@@ -749,13 +781,8 @@ export async function startHost(): Promise<void> {
       if (!inBody) container.style.height = `${Math.ceil(contentH)}px`;
     }
 
-    const report = narrow ? Math.ceil(contentH) : null;
-    if (report !== reportedHeight) {
-      reportedHeight = report;
-      if (window.parent !== window) {
-        window.parent.postMessage({ type: 'ejss:contentHeight', height: report }, '*');
-      }
-    }
+    simContentH = contentH;
+    reportHeight();
 
     // Resize canvas buffers
     const dpr = window.devicePixelRatio || 1;
@@ -802,6 +829,10 @@ export async function startHost(): Promise<void> {
       lastW = cw;
       queueResize();
     }).observe(simRoot.parentElement);
+  }
+  if (dashboard && 'ResizeObserver' in window) {
+    // Recording rows or re-flowing cards changes the dashboard height.
+    new ResizeObserver(() => reportHeight()).observe(dashboard.el);
   }
   resizeAll();
   setTimeout(resizeAll, 50);

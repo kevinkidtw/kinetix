@@ -12,7 +12,8 @@ import {
   Activity, 
   ArrowUpRight, 
   Compass, 
-  Palette 
+  Palette,
+  Gauge,
 } from 'lucide-react';
 
 const ELEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -29,6 +30,7 @@ const ELEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>>
   'Elements.Arrow2D': ArrowUpRight,
   'Elements.Trail2D': Compass, // path trail
   'Elements.CustomDraw': Palette,
+  'Elements.Readout': Gauge,
 };
 
 interface Props {

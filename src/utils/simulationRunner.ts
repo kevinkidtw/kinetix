@@ -196,6 +196,30 @@ const COMMON_CSS = `
   }
   /* Phone layout (set by the runtime): full-size rows, bigger touch target */
   #sim-root.narrow .sl-inp { height: 26px; }
+
+  /* ── 實驗數據儀表板（Elements.Readout）── */
+  body > #sim-dashboard { position: absolute; left: 0; right: 0; top: 0; }
+  .dash { padding: 12px 12px 14px; background: #FAF8F3; border-top: 1px solid #E5E1D8; color: #2B2D31; }
+  .dash-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 4px; }
+  .dash-title { font-weight: 700; font-size: 13px; margin-right: auto; }
+  .dash-t { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #6B6F76; }
+  .dash-btn { font: inherit; font-size: 12px; padding: 4px 10px; min-height: 30px; border-radius: 8px; border: 1px solid #E5E1D8; background: #FFFFFF; color: #2B2D31; cursor: pointer; }
+  .dash-btn:hover:not(:disabled) { border-color: #2F6FB0; color: #2F6FB0; }
+  .dash-btn.primary { background: #2F6FB0; border-color: #2F6FB0; color: #FFFFFF; }
+  .dash-btn.primary:hover { background: #275D94; color: #FFFFFF; }
+  .dash-btn:disabled { opacity: 0.45; cursor: default; }
+  .dash-gtitle { font-size: 11px; font-weight: 700; color: #6B6F76; letter-spacing: 0.06em; margin: 10px 2px 6px; }
+  .dash-group:first-of-type .dash-gtitle { margin-top: 6px; }
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-top: 6px; }
+  .dash-card { background: #FFFFFF; border: 1px solid #E5E1D8; border-left: 4px solid var(--c, #2F6FB0); border-radius: 10px; padding: 7px 10px 8px; min-width: 0; }
+  .dash-lbl { font-size: 11.5px; color: #6B6F76; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dash-val { margin-top: 2px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 17px; font-weight: 600; color: var(--c, #2F6FB0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  .dash-val small { margin-left: 4px; font-size: 11px; font-weight: 500; color: #6B6F76; }
+  .dash-table-wrap { margin-top: 10px; max-height: 220px; overflow: auto; border: 1px solid #E5E1D8; border-radius: 10px; background: #FFFFFF; }
+  .dash-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .dash-table th { position: sticky; top: 0; background: #FAF8F3; font-family: inherit; font-weight: 600; color: #2B2D31; }
+  .dash-table th, .dash-table td { padding: 5px 9px; border-bottom: 1px solid #F0ECE3; text-align: right; white-space: nowrap; }
+  @media (pointer: coarse) { .dash-btn { min-height: 38px; padding: 6px 12px; font-size: 13px; } }
   .sl-val {
     flex-shrink: 0;
     color: #2A9D8F;
@@ -224,6 +248,7 @@ ${COMMON_CSS}
 </head>
 <body>
 ${panelsHTML}
+<div id="sim-dashboard"></div>
 <script>
 window.__EJSS_MODEL__ = ${safeModelJson};
 window.__EJSS_OPTIONS__ = ${safeOptionsJson};
@@ -333,6 +358,11 @@ export function buildSimulationHTML(state: SimulationState): string {
   }
 
   /* Tablets and phones: one scrolling column, simulation first */
+  .export-dashboard { width: 100%; max-width: ${bbW}px; }
+  .export-dashboard:empty { display: none; }
+  .export-dashboard .dash { border: 1px solid #E5E1D8; border-radius: 12px; background: #FFFFFF; }
+  .export-dashboard .dash-card { background: #FAF8F3; }
+
   @media (max-width: 960px) {
     html, body { height: auto; overflow: auto; }
     .app-container { flex-direction: column; height: auto; overflow: visible; }
@@ -371,6 +401,7 @@ export function buildSimulationHTML(state: SimulationState): string {
     <div class="stage-wrapper">
       ${panelsHTML}
     </div>
+    <div id="sim-dashboard" class="export-dashboard"></div>
   </div>
 </div>
 

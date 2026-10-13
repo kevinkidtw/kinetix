@@ -1,4 +1,4 @@
-import { button, customDraw, doubles, drawingPanel, slider } from './builders';
+import { button, C, customDraw, doubles, drawingPanel, readout, slider } from './builders';
 import type { ExampleDef } from './types';
 
 // ═════════════════════════════════════════════════════════════
@@ -56,6 +56,8 @@ $$ P(\theta \gt \Theta) = \frac{\pi b(\Theta)^2}{\pi b_{max}^2} = \left(\frac{d_
 - 上方：金色為原子核，虛線圓為 $d_0$；淺色帶為粒子束範圍。
 - 下方：散射角直方圖（對數刻度），橘點為拉塞福公式的理論期望值。
 - 改變 E 或 b_max 會清除統計重新開始。建議將速度調為 4× 以累積更多數據。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -184,6 +186,11 @@ if (t > _v._lt) {
     slider('rf-s-E', 'Ek', 0.5, 4, 0.1, 'α 粒子動能 E'),
     slider('rf-s-b', 'bmax', 0.5, 6, 0.1, '束半徑 b_max'),
     slider('rf-s-r', 'rate', 1, 20, 1, '發射率（粒/秒）'),
+    readout('rf-r-d0', '正面碰撞最近距離 d₀', 'd0', { digits: 3, color: C.amber, group: '設定' }),
+    readout('rf-r-N', '已統計粒子數 N', 'nTot', { digits: 0, color: C.ink, group: '統計' }),
+    readout('rf-r-nb', '散射角 > 90° 的個數', 'nBack', { digits: 0, color: C.red, group: '統計' }),
+    readout('rf-r-pb', '實測反彈比例', 'nTot > 0 ? 100 * nBack / nTot : "…"', { unit: '%', digits: 2, color: C.red, group: '統計' }),
+    readout('rf-r-pth', '理論 (d₀/2b_max)²', 'Math.min(1, Math.pow(d0 / (2 * bmax), 2)) * 100', { unit: '%', digits: 2, color: C.muted, group: '統計' }),
     customDraw('rf-draw', '散射繪圖', String.raw`
 ctx.fillStyle = "#FFFDF8"; ctx.fillRect(0, 0, W, H);
 var sc = 19.5, ox = W / 2, oy = 128, d0 = vars.d0, bmax = vars.bmax;
@@ -226,13 +233,6 @@ for (var k = 0; k < 18; k++) {
 ctx.fillText("180°", Rr, top + bh + 12);
 ctx.fillStyle = "#2B2D31"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "left";
 ctx.fillText("散射角分布（對數刻度）  ■ 實測  ● 拉塞福公式期望值", L, top - 2);
-var pb = Pgt(Math.PI / 2);
-infoBox(W - 8, 6, [
-  "d0 = 1/E = " + d0.toFixed(3),
-  "統計粒子數 N = " + N,
-  ["θ>90°：" + vars.nBack + "（" + (N ? (100 * vars.nBack / N).toFixed(2) : "0") + "%）", "#D1495B"],
-  ["理論 (d0/2bmax)² = " + (100 * pb).toFixed(2) + "%", "#B97A1E"],
-], { right: true, font: "11px monospace", lh: 15 });
 `),
   ],
 };
@@ -289,6 +289,8 @@ $$ q = \frac{6\pi\eta r\left(v_f + v_r\right)}{E} $$
 - 顯微鏡視野中，粗刻度線間距 0.5 mm，細刻度 0.1 mm。
 - 平行板間距 d = 5 mm、油密度 886 kg/m³、空氣黏滯係數 1.81×10⁻⁵ Pa·s、g = 9.8 m/s²。
 - 油滴到達視野邊緣時會停住，請調整電壓把它拉回來。
+
+- **實驗數據儀表板**（模擬畫面下方）：即時顯示各項量測值與理論值。按「＋ 記錄一列」可把當下所有數值存入數據表，完成後按「匯出表格 CSV」，用試算表作圖分析。
 
 ## 五、實驗步驟與數據記錄
 
@@ -399,6 +401,13 @@ if (swRun > 0) sw = t - sw0;`,
     button('mk-b-new', '新油滴', 'rTrue = 0.45 + 0.4 * Math.random(); nTrue = 1 + Math.floor(Math.random() * 6); yd = 1.0; swRun = 0; sw = 0;'),
     button('mk-b-sw', '碼表 開始／停止', 'if (swRun > 0) { swRun = 0; sw = t - sw0; } else { swRun = 1; sw0 = t; sw = 0; }'),
     slider('mk-s-sh', 'show', 0, 1, 1, '顯示答案'),
+    readout('mk-r-V', '電壓 V', 'V', { unit: 'V', digits: 0, color: C.ink, group: '儀器' }),
+    readout('mk-r-E', '電場 E = V/d', 'V / (dpl * 1e-3)', { unit: 'V/m', color: C.ink, group: '儀器' }),
+    readout('mk-r-sw', '碼表', 'sw', { unit: 's', digits: 2, color: C.red, group: '儀器' }),
+    readout('mk-r-r', '油滴半徑 r', 'show >= 0.5 ? rTrue : "（已隱藏）"', { unit: 'μm', digits: 3, color: C.teal, group: '答案（「顯示答案」設為 1）' }),
+    readout('mk-r-n', '帶電數 n', 'show >= 0.5 ? nTrue : "（已隱藏）"', { unit: 'e', digits: 0, color: C.teal, group: '答案（「顯示答案」設為 1）' }),
+    readout('mk-r-q', '電荷 q', 'show >= 0.5 ? nTrue * 1.602176634e-19 : "（已隱藏）"', { unit: 'C', color: C.teal, group: '答案（「顯示答案」設為 1）' }),
+    readout('mk-r-Vb', '平衡電壓', 'show >= 0.5 ? (4 / 3 * Math.PI * Math.pow(rTrue * 1e-6, 3) * (rho - 1.2)) * g * dpl * 1e-3 / (nTrue * 1.602176634e-19) : "（已隱藏）"', { unit: 'V', digits: 0, color: C.teal, group: '答案（「顯示答案」設為 1）' }),
     customDraw('mk-draw', '顯微鏡視野', String.raw`
 ctx.fillStyle = "#F4F1EA"; ctx.fillRect(0, 0, W, H);
 var cx = 200, cy = 205, Rv = 190, mmpx = Rv / 1.35;
@@ -422,23 +431,6 @@ ctx.fillStyle = "#2B2D31"; ctx.font = "bold 28px monospace"; ctx.textAlign = "le
 ctx.fillText(vars.sw.toFixed(2) + " s", 412, 52);
 ctx.font = "11px sans-serif"; ctx.fillStyle = vars.swRun > 0 ? "#D1495B" : "#6B6F76";
 ctx.fillText(vars.swRun > 0 ? "● 計時中" : "碼表（已停止）", 414, 70);
-var lines = [
-  "V = " + vars.V.toFixed(0) + " V",
-  "E = V/d = " + Ef.toExponential(3) + " V/m",
-  "t = " + vars.t.toFixed(2) + " s",
-  "粗刻度間距 0.5 mm",
-];
-if (vars.show >= 0.5) {
-  var r = vars.rTrue * 1e-6, m = 4 / 3 * Math.PI * r * r * r * (vars.rho - 1.2), q = vars.nTrue * 1.602176634e-19;
-  lines.push(["r = " + vars.rTrue.toFixed(3) + " μm", "#2A9D8F"]);
-  lines.push(["q = " + vars.nTrue + " e = " + (q * 1e19).toFixed(3) + "e-19 C", "#2A9D8F"]);
-  lines.push(["m = " + m.toExponential(3) + " kg", "#2A9D8F"]);
-  lines.push(["平衡電壓 = " + (m * vars.g * vars.dpl * 1e-3 / q).toFixed(0) + " V", "#2A9D8F"]);
-  lines.push(["y = " + vars.yd.toFixed(3) + " mm", "#2A9D8F"]);
-} else {
-  lines.push(["（答案已隱藏）", "#6B6F76"]);
-}
-infoBox(408, 86, lines, { font: "11px monospace", lh: 16, w: 186 });
 `),
   ],
 };
