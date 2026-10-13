@@ -76,21 +76,21 @@ export default function MathReference() {
                   return (
                     <div
                       key={fn.syntax}
-                      className="bg-card border border-line hover:border-line/80 rounded-card p-4 flex flex-col gap-2 transition-colors shadow-xs"
+                      className="bg-card border border-line hover:border-line/80 rounded-card p-4 flex flex-col gap-2 transition-colors shadow-xs min-w-0"
                     >
-                      {/* Top row: syntax copy button + label */}
-                      <div className="flex items-start gap-3">
+                      {/* Top row: syntax copy button + label (wraps when the syntax is long) */}
+                      <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
                         <button
                           onClick={() => copy(fn.syntax)}
                           title="點擊複製"
-                          className={`font-mono text-xs px-2.5 py-1.5 rounded-control flex-shrink-0 transition-all text-left leading-snug cursor-pointer min-h-[32px]
+                          className={`font-mono text-xs px-2.5 py-1.5 rounded-control max-w-full min-w-0 [overflow-wrap:anywhere] transition-all text-left leading-snug cursor-pointer min-h-[32px]
                             ${isCopied
                               ? 'bg-teal-soft text-teal border border-teal/30'
                               : 'bg-paper text-primary border border-line hover:border-primary hover:bg-card'}`}
                         >
                           {isCopied ? '✓ 已複製' : fn.syntax}
                         </button>
-                        <div className="flex-1 min-w-0 pt-0.5">
+                        <div className="flex-1 min-w-[8rem] pt-0.5">
                           <div className="text-ink text-sm font-semibold leading-tight">{fn.label}</div>
                         </div>
                       </div>
@@ -102,7 +102,7 @@ export default function MathReference() {
                       {fn.example && (
                         <div className="bg-paper border border-line rounded-control px-3 py-2">
                           <div className="text-[10px] text-ink-muted uppercase font-bold mb-1">範例</div>
-                          <pre className="text-teal text-xs leading-relaxed whitespace-pre-wrap font-mono">{fn.example}</pre>
+                          <pre className="text-teal text-xs leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] font-mono">{fn.example}</pre>
                         </div>
                       )}
 
