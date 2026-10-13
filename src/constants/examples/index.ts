@@ -7,6 +7,7 @@ import MECHANICS_EXAMPLES from './mechanics';
 import MECHANICS2_EXAMPLES from './mechanics2';
 import MODERN_EXAMPLES from './modern';
 import OPTICS_EXAMPLES from './optics';
+import QUANTUM_EXAMPLES from './quantum';
 import THERMAL_EXAMPLES from './thermal';
 import THERMAL2_EXAMPLES from './thermal2';
 import WAVE_EXAMPLES from './waves';
@@ -28,6 +29,7 @@ const EXAMPLES: ExampleDef[] = [
   ...EM_EXAMPLES,
   ...EM2_EXAMPLES,
   ...MODERN_EXAMPLES,
+  ...QUANTUM_EXAMPLES,
 ];
 
 export default EXAMPLES;
