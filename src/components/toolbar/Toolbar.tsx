@@ -1,9 +1,8 @@
-import { useRef, useState, useEffect } from 'react';
-import { FolderOpen, Save, Download, RefreshCw, MonitorPlay, BookOpen, Calculator, LayoutTemplate, Lock, Unlock, Share2, Copy, Check, X, MoreHorizontal } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { FolderOpen, Save, Download, RefreshCw, MonitorPlay, BookOpen, Calculator, Lock, Unlock, Share2, Copy, Check, X, MoreHorizontal } from 'lucide-react';
 import { useSimulationStore } from '../../store/simulationStore';
 import { readEjssFile } from '../../utils/ejssParser';
 import { downloadEjssFile, exportStandaloneHTML } from '../../utils/simulationRunner';
-import { BACKDROP_TEMPLATES } from '../../constants/backdropTemplates';
 import type { SimulationState } from '../../types/simulation';
 import ExamplesModal from './ExamplesModal';
 import LockDialog from './LockDialog';
@@ -110,69 +109,11 @@ function ShareModal({ state, onClose }: { state: SimulationState; onClose: () =>
   );
 }
 
-function BackdropPopover({ onClose, floating = false }: { onClose: () => void; floating?: boolean }) {
-  const { info, variables, odePages, constraintPages, initPages, addViewElement } = useSimulationStore();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
-
-  const handleSelect = (templateId: string) => {
-    const template = BACKDROP_TEMPLATES.find((t) => t.id === templateId);
-    if (!template) return;
-    useSimulationStore.setState({
-      info, variables, odePages, constraintPages, initPages,
-      viewElements: [],
-      activeBackdrop: templateId,
-      selectedElementId: null,
-    });
-    template.elements.forEach((el) => addViewElement(el));
-    onClose();
-  };
-
-  return (
-    <div
-      ref={ref}
-      className={`${floating ? 'fixed left-2 right-2 top-14 max-h-[70vh] overflow-y-auto' : 'absolute top-11 left-0 min-w-[280px]'} z-50 bg-card border border-line rounded-card shadow-lg p-3.5`}
-    >
-      <div className="text-[10px] text-ink-muted uppercase tracking-wider font-bold mb-2.5">選擇版型模板</div>
-      <div className={`flex flex-wrap gap-2 ${floating ? '' : 'max-w-[380px]'}`}>
-        {BACKDROP_TEMPLATES.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => handleSelect(t.id)}
-            title={t.description}
-            className="flex flex-col items-center rounded-control border border-line hover:border-primary overflow-hidden transition-all w-[82px] bg-paper hover:bg-card cursor-pointer"
-          >
-            <div className="w-full h-14 flex items-center justify-center overflow-hidden bg-paper">
-              <img
-                src={import.meta.env.BASE_URL.replace(/\/$/, '') + t.preview}
-                alt={t.label}
-                className="max-h-12 max-w-full object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </div>
-            <span className="text-[10px] text-ink px-1 py-1 text-center leading-tight w-full truncate font-medium">
-              {t.label}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function Toolbar({ compact = false, showRightStage, onToggleRightStage, onOpenMath }: Props) {
   const store = useSimulationStore();
   const { isLocked } = store;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showExamples, setShowExamples] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [lockDialogMode, setLockDialogMode] = useState<'lock' | 'unlock' | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -216,10 +157,9 @@ export default function Toolbar({ compact = false, showRightStage, onToggleRight
   );
 
   if (compact) {
-    type MenuAction = 'math' | 'template' | 'new' | 'open' | 'save' | 'export' | 'lock' | 'unlock';
+    type MenuAction = 'math' | 'new' | 'open' | 'save' | 'export' | 'lock' | 'unlock';
     const menuItems: { action: MenuAction; label: string; icon: React.ReactNode; disabled?: boolean }[] = [
       { action: 'math', label: '數學速查', icon: <Calculator className="w-4 h-4 text-primary" />, disabled: isLocked },
-      { action: 'template', label: '模板', icon: <LayoutTemplate className="w-4 h-4 text-teal" />, disabled: isLocked },
       { action: 'new', label: '新增（清空畫布）', icon: <RefreshCw className="w-4 h-4 text-primary" />, disabled: isLocked },
       { action: 'open', label: '開啟 .ejss 檔', icon: <FolderOpen className="w-4 h-4 text-ink-muted" />, disabled: isLocked },
       { action: 'save', label: '儲存 .ejss 檔', icon: <Save className="w-4 h-4 text-ink-muted" /> },
@@ -232,7 +172,6 @@ export default function Toolbar({ compact = false, showRightStage, onToggleRight
       setShowMenu(false);
       switch (action) {
         case 'math': onOpenMath(); break;
-        case 'template': setShowTemplates(true); break;
         case 'new': store.resetState(); break;
         case 'open': fileInputRef.current?.click(); break;
         case 'save': downloadEjssFile(getState()); break;
@@ -292,7 +231,6 @@ export default function Toolbar({ compact = false, showRightStage, onToggleRight
             </div>
           </>
         )}
-        {showTemplates && <BackdropPopover floating onClose={() => setShowTemplates(false)} />}
         {modals}
       </>
     );
@@ -309,13 +247,6 @@ export default function Toolbar({ compact = false, showRightStage, onToggleRight
       <button disabled={isLocked} onClick={() => store.resetState()} className={buttonClass}>
         <RefreshCw className="w-3.5 h-3.5 text-primary" /> 新增
       </button>
-
-      <div className="relative flex-shrink-0">
-        <button disabled={isLocked} onClick={() => setShowTemplates((v) => !v)} className={buttonClass}>
-          <LayoutTemplate className="w-3.5 h-3.5 text-teal" /> 模板
-        </button>
-        {showTemplates && <BackdropPopover onClose={() => setShowTemplates(false)} />}
-      </div>
 
       <button disabled={isLocked} onClick={() => setShowExamples(true)} className={buttonClass}>
         <BookOpen className="w-3.5 h-3.5 text-amber" /> 範例庫

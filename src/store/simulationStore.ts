@@ -16,8 +16,6 @@ const DEFAULT_STATE: SimulationState = {
 interface SimulationStore extends SimulationState {
   selectedElementId: string | null;
   setSelectedElement: (id: string | null) => void;
-  activeBackdrop: string | null;
-  setActiveBackdrop: (id: string | null) => void;
 
   // State actions
   loadState: (state: SimulationState) => void;
@@ -61,8 +59,6 @@ export const useSimulationStore = create<SimulationStore>((set) => ({
   ...DEFAULT_STATE,
   selectedElementId: null,
   setSelectedElement: (id) => set({ selectedElementId: id }),
-  activeBackdrop: null,
-  setActiveBackdrop: (id) => set({ activeBackdrop: id }),
 
   loadState: (state) => {
     set({ ...state });
@@ -76,7 +72,7 @@ export const useSimulationStore = create<SimulationStore>((set) => ({
       });
     }
   },
-  resetState: () => set({ ...DEFAULT_STATE, selectedElementId: null, activeBackdrop: null }),
+  resetState: () => set({ ...DEFAULT_STATE, selectedElementId: null }),
   updateDescription: (html) => set({ description: html }),
   toggleLock: (locked) => set({ isLocked: locked }),
   setLock: (hash, salt) => set({ isLocked: true, lockHash: hash, lockSalt: salt }),

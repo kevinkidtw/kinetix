@@ -249,7 +249,7 @@ export default function App() {
       <Toolbar showRightStage={showRightStage} onToggleRightStage={() => setShowRightStage((v) => !v)} onOpenMath={handleOpenMath} />
 
       <div className="flex flex-1 overflow-hidden min-h-0">
-        {/* Left: block palette (top) + element list / backdrop tabs (bottom) */}
+        {/* Left: block palette (top) + element list (bottom) */}
         {!stageFullscreen && !isLocked && (
           <div className="w-[272px] xl:w-[312px] flex flex-col flex-shrink-0 border-r border-line bg-card overflow-hidden min-h-0">
             {leftPanel}
