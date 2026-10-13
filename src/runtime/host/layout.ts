@@ -17,6 +17,7 @@ export const CTRL_EL_TYPES = new Set([
   'Elements.Label',
   'Elements.ParsedField',
   'Elements.Slider',
+  'Elements.CheckBox',
 ]);
 export const CHART_EL_TYPES = new Set(['Elements.PlottingPanel']);
 
@@ -28,6 +29,7 @@ export const EL_DEF_SIZES: Record<string, [number, number]> = {
   'Elements.Slider': [200, 40],
   'Elements.Label': [100, 24],
   'Elements.ParsedField': [80, 24],
+  'Elements.CheckBox': [120, 30],
 };
 
 export type ElLayout<T extends LayoutElement = LayoutElement> = {
@@ -47,7 +49,17 @@ export function elDims(e: LayoutElement): { w: number; h: number } {
 }
 
 /**
- * Lay out a group of elements. If any element has template x/y, use those
+ * Whether a group carries a hand-made x/y layout. Every element needs
+ * coordinates, and they must not all sit on one spot (older editor versions
+ * put every new element at the same default position).
+ */
+function usesCoords(els: LayoutElement[]): boolean {
+  if (els.length === 0 || els.some((e) => e.x == null)) return false;
+  return els.length === 1 || new Set(els.map((e) => `${e.x},${e.y}`)).size > 1;
+}
+
+/**
+ * Lay out a group of elements. With a hand-made x/y layout, use those
  * coordinates and normalize to (0,0). Otherwise auto-layout left-to-right.
  */
 export function layoutGroup<T extends LayoutElement>(els: T[]): {
@@ -56,8 +68,7 @@ export function layoutGroup<T extends LayoutElement>(els: T[]): {
   panelH: number;
 } {
   if (!els.length) return { items: [], panelW: 0, panelH: 0 };
-  const hasCoords = els.some((e) => e.x != null);
-  if (hasCoords) {
+  if (usesCoords(els)) {
     const raw = els.map((e) => {
       const { w, h } = elDims(e);
       return { el: e, x: e.x ?? 0, y: e.y ?? 0, w, h };
@@ -126,7 +137,7 @@ export function computePanelLayout<T extends LayoutElement>(viewElements: T[]): 
 
   const ctrlCount = ctrlItemsRaw.length;
   const CTRL_GAP = 4;
-  const hasCoords = ctrlEls.some((e) => e.x != null);
+  const hasCoords = usesCoords(ctrlEls);
   const slotW = ctrlCount > 0 ? Math.floor((bbW - CTRL_GAP * (ctrlCount - 1)) / ctrlCount) : bbW;
   const ctrlItems: ElLayout<T>[] = hasCoords
     ? ctrlItemsRaw

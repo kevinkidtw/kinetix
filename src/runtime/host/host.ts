@@ -5,6 +5,7 @@ import type {
   EngineSnapshot,
   PerfStats,
   RtModel,
+  RtViewElement,
   SampleChannel,
   VarBag,
 } from '../core/types';
@@ -126,6 +127,10 @@ export async function startHost(): Promise<void> {
       compileExprSafe(`pf:${el.id}`, p.Value, el.id, 'Value');
     } else if (el.type === 'Elements.Readout') {
       compileExprSafe(`ro:${el.id}`, p.Value, el.id, 'Value');
+    } else if (el.type === 'Elements.Label' && p.Text && p.Text.trim()) {
+      // Plain (non-expression) label text is valid too, so no diagnostic here.
+      const res = compiler.expr(p.Text.trim(), { block: 'view', pageId: el.id, item: 'Text' });
+      if (typeof res === 'function') compiledExprs.set(`lbl:${el.id}`, res);
     }
   });
 
@@ -261,8 +266,123 @@ export async function startHost(): Promise<void> {
     );
   }
 
+  const CANVAS_SHAPE_TYPES = new Set([
+    'Elements.Shape2D',
+    'Elements.Spring2D',
+    'Elements.Arrow2D',
+    'Elements.Trail2D',
+  ]);
+
+  // Element selected in the editor's element list (preview only). DOM-based
+  // elements get an outline; shapes drawn on a canvas get a dashed box.
+  let highlightId: string | null = null;
+  let highlightFallback: HTMLElement | null = null;
+
+  function drawHighlightBox(
+    ctx: CanvasRenderingContext2D,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    name: string
+  ) {
+    const pad = 7;
+    const l = Math.min(x0, x1) - pad;
+    const t = Math.min(y0, y1) - pad;
+    const w = Math.abs(x1 - x0) + 2 * pad;
+    const h = Math.abs(y1 - y0) + 2 * pad;
+    ctx.save();
+    ctx.fillStyle = 'rgba(233,162,59,0.14)';
+    ctx.fillRect(l, t, w, h);
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#E9A23B';
+    ctx.strokeRect(l, t, w, h);
+    ctx.setLineDash([]);
+    ctx.font = '600 12px system-ui, sans-serif';
+    const tw = ctx.measureText(name).width + 10;
+    const ty = t - 20 < 0 ? t + h + 2 : t - 20;
+    ctx.fillStyle = '#E9A23B';
+    ctx.fillRect(l, ty, tw, 18);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, l + 5, ty + 9);
+    ctx.restore();
+  }
+
+  /** Pixel box of a canvas-drawn element, or null when nothing is drawn. */
+  function highlightBoxOf(
+    el: RtViewElement,
+    helpers: ReturnType<typeof getDrawingHelpers>
+  ): [number, number, number, number] | null {
+    const num = (key: string, dflt: number) =>
+      Number(compiledExprs.get(`el:${el.id}:${key}`)?.(viewVars) ?? dflt);
+    const { toPixX, toPixY, toPixLen } = helpers;
+    if (el.type === 'Elements.Shape2D') {
+      const px = toPixX(num('X', 0));
+      const py = toPixY(num('Y', 0));
+      const sx = toPixLen(num('SizeX', 0.3) || 0.3);
+      const sy = toPixLen(num('SizeY', 0.3) || 0.3);
+      return [px - sx, py - sy, px + sx, py + sy];
+    }
+    if (el.type === 'Elements.Spring2D' || el.type === 'Elements.Arrow2D') {
+      const x = num('X', 0);
+      const y = num('Y', 0);
+      const dx = num('SizeX', el.type === 'Elements.Spring2D' ? 2 : 1);
+      const dy = num('SizeY', 0);
+      return [toPixX(x), toPixY(y), toPixX(x + dx), toPixY(y + dy)];
+    }
+    if (el.type === 'Elements.Trail2D') {
+      const pts = trailBuffers.get(el.id) ?? [];
+      if (!pts.length) return null;
+      let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+      for (const [x, y] of pts) {
+        const px = toPixX(x);
+        const py = toPixY(y);
+        x0 = Math.min(x0, px);
+        y0 = Math.min(y0, py);
+        x1 = Math.max(x1, px);
+        y1 = Math.max(y1, py);
+      }
+      return [x0, y0, x1, y1];
+    }
+    return null;
+  }
+
+  function setHighlightFallback(target: HTMLElement | null) {
+    if (highlightFallback === target) return;
+    highlightFallback?.classList.remove('sim-hl');
+    highlightFallback = target;
+    target?.classList.add('sim-hl');
+  }
+
+  function applyHighlight(id: string | null) {
+    highlightId = id;
+    document.querySelectorAll('.sim-hl').forEach((n) => n.classList.remove('sim-hl'));
+    highlightFallback = null;
+    const el = id ? model!.viewElements.find((e) => e.id === id) : undefined;
+    let target: HTMLElement | null = null;
+    if (el) {
+      target = document.querySelector<HTMLElement>(`[data-el="${CSS.escape(el.id)}"]`);
+      if (target) {
+        target.classList.add('sim-hl');
+      } else {
+        // Drawn on a drawing panel: point at that panel.
+        target = getPanelForEl(el.parent)?.canvas ?? null;
+        if (el.type === 'Elements.CustomDraw') setHighlightFallback(target);
+      }
+    }
+    if (target && window.parent !== window) {
+      const r = target.getBoundingClientRect();
+      window.parent.postMessage({ type: 'ejss:highlightRect', top: r.top, bottom: r.bottom }, '*');
+    }
+    requestRender();
+  }
+
   // 7. Render function
   function renderAll() {
+    let hlDrawn = false;
+    let hlPanel: DrawingPanelState | null = null;
     // 7.1 Drawing panels
     drawingPanels.forEach((panel) => {
       clearAndDrawGrid(panel);
@@ -327,7 +447,16 @@ export async function startHost(): Promise<void> {
         } else if (el.type === 'Elements.Trail2D') {
           const pts = trailBuffers.get(el.id) ?? [];
           drawTrail2D(panel.ctx, helpers, pts, p.LineColor);
-        } else if (el.type === 'Elements.CustomDraw') {
+        }
+        if (el.id === highlightId && CANVAS_SHAPE_TYPES.has(el.type)) {
+          hlPanel = panel;
+          const b = highlightBoxOf(el, helpers);
+          if (b) {
+            drawHighlightBox(panel.ctx, b[0], b[1], b[2], b[3], el.name);
+            hlDrawn = true;
+          }
+        }
+        if (el.type === 'Elements.CustomDraw') {
           const fn = customDrawFns.get(el.id);
           if (fn) {
             try {
@@ -350,6 +479,9 @@ export async function startHost(): Promise<void> {
         }
       });
     });
+
+    // A selected shape that is hidden or not drawn yet: outline its panel.
+    if (hlPanel) setHighlightFallback(hlDrawn ? null : (hlPanel as DrawingPanelState).canvas);
 
     // 7.2 Plotting panels
     plottingPanels.forEach((pp) => {
@@ -629,9 +761,13 @@ export async function startHost(): Promise<void> {
         proxy.setSpeed(data.speed);
       } else if (data.type === 'ejss:setVars') {
         setViewVars(data.patch);
+      } else if (data.type === 'ejss:highlight') {
+        applyHighlight(typeof data.id === 'string' ? data.id : null);
       }
     }
   });
+  // Let the editor re-send settings (speed, selection) to this fresh page.
+  if (window.parent !== window) window.parent.postMessage({ type: 'ejss:ready' }, '*');
 
   // 13. Expose functions to window (for standalone export HTML UI)
   window.simPlay = doPlay;

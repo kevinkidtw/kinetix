@@ -77,6 +77,27 @@ export default function App() {
     setMobileView('edit');
   };
 
+  // A block added from the palette lives in the script tab: show it there.
+  const revealBlock = (blockId: string) => {
+    setOpenTabIds((prev) => (prev.includes(SCRIPT_TAB) ? prev : [...prev, SCRIPT_TAB]));
+    setActiveTabId(SCRIPT_TAB);
+    setMobileView('edit');
+    let tries = 0;
+    const tick = () => {
+      const node = document.querySelector<HTMLElement>(`[data-block-id="${CSS.escape(blockId)}"]`);
+      if (!node) {
+        if (++tries < 10) requestAnimationFrame(tick);
+        return;
+      }
+      node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      node.classList.remove('block-flash');
+      void node.offsetWidth;
+      node.classList.add('block-flash');
+      node.querySelector<HTMLElement>('input, textarea')?.focus({ preventScroll: true });
+    };
+    requestAnimationFrame(tick);
+  };
+
   // When an element is selected, open/activate its tab
   useEffect(() => {
     if (!selectedElementId) return;
@@ -186,7 +207,7 @@ export default function App() {
   const leftPanel = (
     <>
       <div className="flex-shrink-0 overflow-y-auto max-h-[56%]">
-        <BlockPalette />
+        <BlockPalette onAdded={revealBlock} />
       </div>
       <div className="flex-1 border-t border-line overflow-hidden min-h-0">
         <SpriteList />

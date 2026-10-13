@@ -32,7 +32,7 @@ export default function ConstraintBlock({ page, kind }: Props) {
   const fx = useFxInsert(page.code, (v) => update(page.id, { code: v }));
 
   return (
-    <div className={`bg-card border border-line border-l-4 ${color.borderLeft} rounded-card p-3.5 shadow-xs hover:border-line/80 transition-all select-none mb-3 space-y-3`}>
+    <div data-block-id={page.id} className={`bg-card border border-line border-l-4 ${color.borderLeft} rounded-card p-3.5 shadow-xs hover:border-line/80 transition-all select-none mb-3 space-y-3`}>
       <div className="flex items-center gap-2">
         <span className={`${color.textAccent} font-bold text-sm flex-shrink-0`}>{color.label}</span>
         <input

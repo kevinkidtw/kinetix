@@ -94,6 +94,7 @@ export function createDashboard(
       const d = parseInt(unquote(p.Digits), 10);
       const card = document.createElement('div');
       card.className = 'dash-card';
+      card.dataset.el = el.id;
       card.style.setProperty('--c', color);
       card.innerHTML =
         `<div class="dash-lbl" title="${escapeHtml(label)}">${escapeHtml(label)}</div>` +

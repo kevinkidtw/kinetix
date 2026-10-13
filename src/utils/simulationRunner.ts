@@ -67,31 +67,43 @@ export function stateToRtModel(state: SimulationState): RtModel {
 
 function renderLayoutItem({ el, x, y, w, h }: ElLayout): string {
   const pos = `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+  // data-el lets the editor highlight the element selected in the element list.
+  const box = `data-el="${el.id}" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}"`;
   const p = el.properties;
 
   switch (el.type) {
     case 'Elements.DrawingPanel':
-      return `<canvas id="dp_${el.id}" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" style="${pos}" width="${w}" height="${h}"></canvas>`;
+      return `<canvas id="dp_${el.id}" ${box} style="${pos}" width="${w}" height="${h}"></canvas>`;
     case 'Elements.PlottingPanel':
-      return `<canvas id="pp_${el.id}" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" style="${pos}" width="${w}" height="${h}"></canvas>`;
+      return `<canvas id="pp_${el.id}" ${box} style="${pos}" width="${w}" height="${h}"></canvas>`;
     case 'Elements.Button': {
       const txt = (p.Text || '"按鈕"').replace(/^"|"$/g, '');
-      return `<button id="btn_${el.id}" class="sim-btn" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" data-fs="14" style="${pos}">${escapeHtml(txt)}</button>`;
+      const tip = (p.Tooltip || '').replace(/^"|"$/g, '');
+      return `<button id="btn_${el.id}" class="sim-btn" ${box} data-fs="14" style="${pos}"${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(txt)}</button>`;
     }
     case 'Elements.TwoStateButton':
-      return `<button id="tsb_${el.id}" class="sim-btn tsb-btn" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" data-fs="14" style="${pos}">▶ 播放</button>`;
+      return `<button id="tsb_${el.id}" class="sim-btn tsb-btn" ${box} data-fs="14" style="${pos}">▶ 播放</button>`;
     case 'Elements.Label': {
       const txt = (p.Text || '""').replace(/^"|"$/g, '');
-      return `<div id="lbl_${el.id}" class="sim-label" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" data-fs="15" style="${pos}">${escapeHtml(txt)}</div>`;
+      return `<div id="lbl_${el.id}" class="sim-label" ${box} data-fs="15" style="${pos}">${escapeHtml(txt)}</div>`;
     }
-    case 'Elements.ParsedField':
-      return `<div id="pf_${el.id}" class="sim-field" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" data-fs="14" style="${pos}">0</div>`;
+    case 'Elements.ParsedField': {
+      const editable = (p.Editable ?? 'true').trim() !== 'false';
+      return `<input id="pf_${el.id}" class="sim-field" ${box} data-fs="14" style="${pos}" value="0" inputmode="decimal" autocomplete="off"${editable ? '' : ' readonly tabindex="-1"'}>`;
+    }
+    case 'Elements.CheckBox': {
+      const txt = (p.Text || '""').replace(/^"|"$/g, '');
+      return (
+        `<label id="cb_${el.id}" class="sim-check" ${box} data-fs="14" style="${pos}">` +
+        `<input type="checkbox" id="cbi_${el.id}"><span>${escapeHtml(txt)}</span></label>`
+      );
+    }
     case 'Elements.Slider': {
       const vn = p.Variable || '';
       if (!vn) return '';
       const lbl = p.Label || vn;
       return (
-        `<div id="sl_${el.id}" class="sim-slider" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" data-fs="13" style="${pos}">` +
+        `<div id="sl_${el.id}" class="sim-slider" ${box} data-fs="13" style="${pos}">` +
         `<div class="sl-header"><span class="sl-lbl" data-fs="13">${escapeHtml(lbl)}</span><span id="slv_${el.id}" class="sl-val" data-fs="12">0</span></div>` +
         `<input type="range" id="slr_${el.id}" min="${p.Minimum || '0'}" max="${p.Maximum || '10'}" step="${p.Step || '0.1'}" data-var="${vn}" class="sl-inp">` +
         `</div>`
@@ -161,10 +173,28 @@ const COMMON_CSS = `
     border: 1px solid #E5E1D8;
     border-radius: 6px;
     color: #2B2D31;
+    text-align: center;
+    outline: none;
+    padding: 0 4px;
+    min-width: 0;
+  }
+  .sim-field:focus { border-color: #2F6FB0; box-shadow: 0 0 0 2px rgba(47,111,176,0.18); }
+  .sim-field[readonly] { background: #FAF8F3; cursor: default; }
+  .sim-check {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #2B2D31;
+    cursor: pointer;
+    user-select: none;
   }
+  .sim-check input { width: 16px; height: 16px; margin: 0; accent-color: #2A9D8F; cursor: pointer; flex-shrink: 0; }
+  #sim-root.narrow .sim-check input { width: 22px; height: 22px; }
+  /* Element selected in the editor's element list */
+  .sim-hl { outline: 3px solid #E9A23B !important; outline-offset: 2px; box-shadow: 0 0 0 7px rgba(233,162,59,0.22) !important; z-index: 5; animation: sim-hl-pulse 1.6s ease-in-out infinite; }
+  @keyframes sim-hl-pulse { 50% { outline-color: rgba(233,162,59,0.45); } }
   .sim-slider {
     display: flex;
     flex-direction: column;

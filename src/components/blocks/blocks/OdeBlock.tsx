@@ -71,7 +71,7 @@ export default function OdeBlock({ page }: { page: OdePage }) {
   const { updateOdePage, addOdeRate, updateOdeRate, removeOdeRate, removeOdePage } = useSimulationStore();
 
   return (
-    <div className="bg-card border border-line border-l-4 border-l-primary rounded-card p-3.5 shadow-xs hover:border-line/80 transition-all select-none mb-3 space-y-3">
+    <div data-block-id={page.id} className="bg-card border border-line border-l-4 border-l-primary rounded-card p-3.5 shadow-xs hover:border-line/80 transition-all select-none mb-3 space-y-3">
       {/* Header row 1: label + name + trash */}
       <div className="flex items-center gap-2">
         <span className="text-primary font-bold text-sm flex-shrink-0 flex items-center gap-1.5">
