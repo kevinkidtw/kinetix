@@ -65,6 +65,13 @@ describe('built-in example library', () => {
     }
   });
 
+  it('gives every example a data dashboard', () => {
+    for (const ex of EXAMPLES) {
+      const cards = ex.viewElements.filter((e) => e.type === 'Elements.Readout');
+      expect(cards.length, `${ex.id} has too few dashboard cards`).toBeGreaterThanOrEqual(4);
+    }
+  });
+
   it('binds sliders and draggable shapes to declared variables', () => {
     for (const ex of EXAMPLES) {
       const names = new Set(ex.variables.map((v) => v.name));

@@ -1,5 +1,5 @@
 import { HANDOUTS } from './handouts/classic';
-import { doubles } from './builders';
+import { C, doubles, readout } from './builders';
 import type { ExampleDef } from './types';
 
 /** Softened Newtonian gravity on body `i` along `axis`, from the other two bodies. */
@@ -13,404 +13,8 @@ function gravity3D(i: number, axis: 'x' | 'y' | 'z'): string {
     .join(' + ');
 }
 
-/** The original Kinetix example set (high-school level through chaos). */
+/** Original examples kept in this file: CRT, refraction, ideal gas, 3D three-body. */
 const CLASSIC_EXAMPLES: ExampleDef[] = [
-  // ─────────────────────────────────────────────
-  // 1. 簡諧運動
-  // ─────────────────────────────────────────────
-  {
-    id: 'shm',
-    category: '振動與波動',
-    listDescription: '彈簧與質點的來回振盪，觀察位置、速度與能量之間的轉換關係。',
-    description: HANDOUTS.shm,
-    difficulty: '入門',
-    info: { title: '簡諧運動', author: '', keywords: '', abstract: '' },
-    variables: [
-      { id: 'shm-x',  name: 'x',  value: '2',   type: 'double', comment: '質點位置（公尺）', page: 'Variables', scope: 'global' },
-      { id: 'shm-vx', name: 'vx', value: '0',   type: 'double', comment: '質點速度（公尺/秒）', page: 'Variables', scope: 'global' },
-      { id: 'shm-k',  name: 'k',  value: '8',   type: 'double', comment: '彈簧係數（N/m）', page: 'Variables', scope: 'global' },
-      { id: 'shm-m',  name: 'm',  value: '1',   type: 'double', comment: '質量（kg）', page: 'Variables', scope: 'global' },
-      { id: 'shm-F',  name: 'F',  value: '0',   type: 'double', comment: '彈力（N）', page: 'Variables', scope: 'global' },
-      { id: 'shm-E',  name: 'E',  value: '0',   type: 'double', comment: '總機械能（J）', page: 'Variables', scope: 'global' },
-    ],
-    odePages: [{
-      id: 'shm-ode', name: '運動方程', method: 'RungeKutta', increment: '0.02', comment: '',
-      rates: [
-        { state: 'x',  expression: 'vx' },
-        { state: 'vx', expression: '-k * x / m' },
-      ],
-    }],
-    constraintPages: [{
-      id: 'shm-con', name: '計算能量與力', comment: '',
-      code: 'F = -k * x;\nE = 0.5 * m * vx * vx + 0.5 * k * x * x;',
-    }],
-    initPages: [],
-    viewElements: [
-      {
-        id: 'shm-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '400', Height: '300', MinimumX: '-4', MaximumX: '4', MinimumY: '-3', MaximumY: '3', Background: '"#FFFDF8"', SquareAspect: 'false' },
-      },
-      {
-        id: 'shm-trail', type: 'Elements.Trail2D', name: 'Trail1', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: '0', LineColor: '"#6B6F76"', MaximumPoints: '300' },
-      },
-      {
-        id: 'shm-arrow', type: 'Elements.Arrow2D', name: '彈力箭頭', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: '0', SizeX: 'F * 0.15', SizeY: '0', FillColor: '"#D1495B"' },
-      },
-      {
-        id: 'shm-ball', type: 'Elements.Shape2D', name: '質點', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: '0', SizeX: '0.3', SizeY: '0.3', ShapeType: 'ELLIPSE', FillColor: '"#2F6FB0"', LineColor: '"#275D94"', Visible: 'true' },
-      },
-    ],
-  },
-
-  // ─────────────────────────────────────────────
-  // 2. 單擺
-  // ─────────────────────────────────────────────
-  {
-    id: 'pendulum',
-    category: '振動與波動',
-    listDescription: '以角度為變數描述單擺運動，可調整初始擺角，觀察大角度與小角度的差異。',
-    description: HANDOUTS.pendulum,
-    difficulty: '入門',
-    info: { title: '單擺', author: '', keywords: '', abstract: '' },
-    variables: [
-      { id: 'pen-theta', name: 'theta', value: '1.2',  type: 'double', comment: '擺角（弧度）', page: 'Variables', scope: 'global' },
-      { id: 'pen-omega', name: 'omega', value: '0',    type: 'double', comment: '角速度（弧度/秒）', page: 'Variables', scope: 'global' },
-      { id: 'pen-L',     name: 'L',     value: '2.5',  type: 'double', comment: '擺長（公尺）', page: 'Variables', scope: 'global' },
-      { id: 'pen-g',     name: 'g',     value: '9.8',  type: 'double', comment: '重力加速度', page: 'Variables', scope: 'global' },
-    ],
-    odePages: [{
-      id: 'pen-ode', name: '擺動方程', method: 'RungeKutta', increment: '0.01', comment: '',
-      rates: [
-        { state: 'theta', expression: 'omega' },
-        { state: 'omega', expression: '-(g / L) * Math.sin(theta)' },
-      ],
-    }],
-    constraintPages: [],
-    initPages: [],
-    viewElements: [
-      {
-        id: 'pen-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '400', Height: '350', MinimumX: '-3', MaximumX: '3', MinimumY: '-3', MaximumY: '1.2', Background: '"#FFFDF8"', SquareAspect: 'true' },
-      },
-      {
-        id: 'pen-trail', type: 'Elements.Trail2D', name: '軌跡', parent: 'DrawingPanel1',
-        properties: { X: 'L * Math.sin(theta)', Y: '-L * Math.cos(theta)', LineColor: '"#6B6F76"', MaximumPoints: '400' },
-      },
-      {
-        id: 'pen-rod', type: 'Elements.Arrow2D', name: '擺桿', parent: 'DrawingPanel1',
-        properties: { X: '0', Y: '0', SizeX: 'L * Math.sin(theta)', SizeY: '-L * Math.cos(theta)', FillColor: '"#6B6F76"' },
-      },
-      {
-        id: 'pen-pivot', type: 'Elements.Shape2D', name: '支點', parent: 'DrawingPanel1',
-        properties: { X: '0', Y: '0', SizeX: '0.08', SizeY: '0.08', ShapeType: 'ELLIPSE', FillColor: '"#2B2D31"', LineColor: '"#2B2D31"', Visible: 'true' },
-      },
-      {
-        id: 'pen-bob', type: 'Elements.Shape2D', name: '擺錘', parent: 'DrawingPanel1',
-        properties: { X: 'L * Math.sin(theta)', Y: '-L * Math.cos(theta)', SizeX: '0.22', SizeY: '0.22', ShapeType: 'ELLIPSE', FillColor: '"#E9A23B"', LineColor: '"#D68C26"', Visible: 'true' },
-      },
-    ],
-  },
-
-  // ─────────────────────────────────────────────
-  // 3. 拋體運動
-  // ─────────────────────────────────────────────
-  {
-    id: 'projectile',
-    category: '力學',
-    listDescription: '水平拋出的球體受重力影響做拋物線運動，碰到地面後會反彈（能量略有損失）。',
-    description: HANDOUTS.projectile,
-    difficulty: '入門',
-    info: { title: '拋體運動', author: '', keywords: '', abstract: '' },
-    variables: [
-      { id: 'pro-x',   name: 'x',   value: '-4',  type: 'double', comment: 'X 位置', page: 'Variables', scope: 'global' },
-      { id: 'pro-y',   name: 'y',   value: '2',   type: 'double', comment: 'Y 位置', page: 'Variables', scope: 'global' },
-      { id: 'pro-vx',  name: 'vx',  value: '4',   type: 'double', comment: 'X 速度', page: 'Variables', scope: 'global' },
-      { id: 'pro-vy',  name: 'vy',  value: '3',   type: 'double', comment: 'Y 速度', page: 'Variables', scope: 'global' },
-      { id: 'pro-g',   name: 'g',   value: '9.8', type: 'double', comment: '重力加速度', page: 'Variables', scope: 'global' },
-    ],
-    odePages: [{
-      id: 'pro-ode', name: '拋體方程', method: 'RungeKutta', increment: '0.02', comment: '',
-      rates: [
-        { state: 'x',  expression: 'vx' },
-        { state: 'y',  expression: 'vy' },
-        { state: 'vx', expression: '0' },
-        { state: 'vy', expression: '-g' },
-      ],
-    }],
-    constraintPages: [{
-      id: 'pro-con', name: '地面反彈', comment: '',
-      code: 'if (y < -3.5) {\n  y = -3.5;\n  vy = -0.65 * vy;\n  vx = 0.98 * vx;\n}',
-    }],
-    initPages: [{
-      id: 'pro-init', name: '重設位置', comment: '',
-      code: 'x = -4; y = 2; vx = 4; vy = 3;',
-    }],
-    viewElements: [
-      {
-        id: 'pro-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '480', Height: '300', MinimumX: '-5', MaximumX: '5', MinimumY: '-4', MaximumY: '4', Background: '"#FFFDF8"', SquareAspect: 'false' },
-      },
-      {
-        id: 'pro-trail', type: 'Elements.Trail2D', name: '軌跡', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: 'y', LineColor: '"#2F6FB0"', MaximumPoints: '500' },
-      },
-      {
-        id: 'pro-ball', type: 'Elements.Shape2D', name: '球', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: 'y', SizeX: '0.25', SizeY: '0.25', ShapeType: 'ELLIPSE', FillColor: '"#E9A23B"', LineColor: '"#D68C26"', Visible: 'true' },
-      },
-    ],
-  },
-
-  // ─────────────────────────────────────────────
-  // 4. 阻尼振盪
-  // ─────────────────────────────────────────────
-  {
-    id: 'damped',
-    category: '振動與波動',
-    listDescription: '彈簧振盪加上阻力，振幅隨時間衰減。試著改變阻尼係數 b，觀察臨界阻尼與過阻尼現象。',
-    description: HANDOUTS.damped,
-    difficulty: '基礎',
-    info: { title: '阻尼振盪', author: '', keywords: '', abstract: '' },
-    variables: [
-      { id: 'dmp-x',  name: 'x',  value: '3',   type: 'double', comment: '質點位置', page: 'Variables', scope: 'global' },
-      { id: 'dmp-vx', name: 'vx', value: '0',   type: 'double', comment: '質點速度', page: 'Variables', scope: 'global' },
-      { id: 'dmp-k',  name: 'k',  value: '5',   type: 'double', comment: '彈簧係數', page: 'Variables', scope: 'global' },
-      { id: 'dmp-m',  name: 'm',  value: '1',   type: 'double', comment: '質量', page: 'Variables', scope: 'global' },
-      { id: 'dmp-b',  name: 'b',  value: '0.8', type: 'double', comment: '阻尼係數（試試 0、1、4、6）', page: 'Variables', scope: 'global' },
-    ],
-    odePages: [{
-      id: 'dmp-ode', name: '阻尼方程', method: 'RungeKutta', increment: '0.02', comment: '',
-      rates: [
-        { state: 'x',  expression: 'vx' },
-        { state: 'vx', expression: '(-k * x - b * vx) / m' },
-      ],
-    }],
-    constraintPages: [],
-    initPages: [],
-    viewElements: [
-      {
-        id: 'dmp-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '400', Height: '260', MinimumX: '-4', MaximumX: '4', MinimumY: '-3', MaximumY: '3', Background: '"#FFFDF8"', SquareAspect: 'false' },
-      },
-      {
-        id: 'dmp-trail', type: 'Elements.Trail2D', name: '軌跡', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: '0', LineColor: '"#2F6FB0"', MaximumPoints: '800' },
-      },
-      {
-        id: 'dmp-spring', type: 'Elements.Spring2D', name: '彈簧', parent: 'DrawingPanel1',
-        properties: { X: '-4', Y: '0', SizeX: 'x + 4', SizeY: '0', LineColor: '"#6B6F76"' },
-      },
-      {
-        id: 'dmp-ball', type: 'Elements.Shape2D', name: '質點', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: '0', SizeX: '0.28', SizeY: '0.28', ShapeType: 'ELLIPSE', FillColor: '"#2F6FB0"', LineColor: '"#275D94"', Visible: 'true' },
-      },
-    ],
-  },
-
-  // ─────────────────────────────────────────────
-  // 5. 行星軌道
-  // ─────────────────────────────────────────────
-  {
-    id: 'orbit',
-    category: '力學',
-    listDescription: '行星受萬有引力吸引繞太陽運行，軌道為橢圓（克卜勒第一定律）。改變初速度可得到不同形狀的軌道。',
-    description: HANDOUTS.orbit,
-    difficulty: '進階',
-    info: { title: '行星軌道', author: '', keywords: '', abstract: '' },
-    variables: [
-      { id: 'orb-x',   name: 'x',   value: '2',   type: 'double', comment: '行星 X 位置', page: 'Variables', scope: 'global' },
-      { id: 'orb-y',   name: 'y',   value: '0',   type: 'double', comment: '行星 Y 位置', page: 'Variables', scope: 'global' },
-      { id: 'orb-vx',  name: 'vx',  value: '0',   type: 'double', comment: '行星 X 速度', page: 'Variables', scope: 'global' },
-      { id: 'orb-vy',  name: 'vy',  value: '0.8', type: 'double', comment: '行星 Y 速度（試試 0.7～1.4）', page: 'Variables', scope: 'global' },
-      { id: 'orb-GM',  name: 'GM',  value: '1',   type: 'double', comment: '重力常數 × 太陽質量', page: 'Variables', scope: 'global' },
-      { id: 'orb-r',   name: 'r',   value: '0',   type: 'double', comment: '行星與太陽距離', page: 'Variables', scope: 'global' },
-    ],
-    odePages: [{
-      id: 'orb-ode', name: '重力方程', method: 'Yoshida4', increment: '0.005', comment: '',
-      rates: [
-        { state: 'x',  expression: 'vx' },
-        { state: 'y',  expression: 'vy' },
-        { state: 'vx', expression: '-GM * x / Math.pow(x*x + y*y, 1.5)' },
-        { state: 'vy', expression: '-GM * y / Math.pow(x*x + y*y, 1.5)' },
-      ],
-    }],
-    constraintPages: [{
-      id: 'orb-con', name: '計算距離', comment: '',
-      code: 'r = Math.sqrt(x*x + y*y);',
-    }],
-    initPages: [],
-    viewElements: [
-      {
-        id: 'orb-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '380', Height: '380', MinimumX: '-4', MaximumX: '4', MinimumY: '-4', MaximumY: '4', Background: '"#FFFDF8"', SquareAspect: 'true' },
-      },
-      {
-        id: 'orb-trail', type: 'Elements.Trail2D', name: '軌道', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: 'y', LineColor: '"#2F6FB0"', MaximumPoints: '1500' },
-      },
-      {
-        id: 'orb-sun', type: 'Elements.Shape2D', name: '太陽', parent: 'DrawingPanel1',
-        properties: { X: '0', Y: '0', SizeX: '0.35', SizeY: '0.35', ShapeType: 'ELLIPSE', FillColor: '"#E9A23B"', LineColor: '"#D68C26"', Visible: 'true' },
-      },
-      {
-        id: 'orb-planet', type: 'Elements.Shape2D', name: '行星', parent: 'DrawingPanel1',
-        properties: { X: 'x', Y: 'y', SizeX: '0.18', SizeY: '0.18', ShapeType: 'ELLIPSE', FillColor: '"#2A9D8F"', LineColor: '"#1A5B52"', Visible: 'true' },
-      },
-    ],
-  },
-
-  // ─────────────────────────────────────────────
-  // 6. 三體問題（8字形軌道）
-  // Chenciner & Montgomery (2000) 精確初始條件
-  // G=1，三顆等質量 m=1 的星體沿同一條 8 字形路徑追逐
-  // ─────────────────────────────────────────────
-  {
-    id: 'threebody',
-    category: '力學',
-    listDescription: '三顆等質量星體互相以萬有引力吸引，沿同一條 8 字形軌道追逐（Chenciner-Montgomery 穩定解）。這是三體問題中極少數已知的週期解之一。',
-    description: HANDOUTS.threebody,
-    difficulty: '進階',
-    info: { title: '三體問題（8字形軌道）', author: '', keywords: '', abstract: '' },
-    variables: [
-      // Body 1
-      { id: 'tb-x1',  name: 'x1',  value: '0.97000436',   type: 'double', comment: '星體1 X 位置', page: 'Variables', scope: 'global' },
-      { id: 'tb-y1',  name: 'y1',  value: '-0.24308753',  type: 'double', comment: '星體1 Y 位置', page: 'Variables', scope: 'global' },
-      { id: 'tb-vx1', name: 'vx1', value: '0.46620368',   type: 'double', comment: '星體1 X 速度', page: 'Variables', scope: 'global' },
-      { id: 'tb-vy1', name: 'vy1', value: '0.43236573',   type: 'double', comment: '星體1 Y 速度', page: 'Variables', scope: 'global' },
-      // Body 2
-      { id: 'tb-x2',  name: 'x2',  value: '-0.97000436',  type: 'double', comment: '星體2 X 位置', page: 'Variables', scope: 'global' },
-      { id: 'tb-y2',  name: 'y2',  value: '0.24308753',   type: 'double', comment: '星體2 Y 位置', page: 'Variables', scope: 'global' },
-      { id: 'tb-vx2', name: 'vx2', value: '0.46620368',   type: 'double', comment: '星體2 X 速度', page: 'Variables', scope: 'global' },
-      { id: 'tb-vy2', name: 'vy2', value: '0.43236573',   type: 'double', comment: '星體2 Y 速度', page: 'Variables', scope: 'global' },
-      // Body 3
-      { id: 'tb-x3',  name: 'x3',  value: '0',            type: 'double', comment: '星體3 X 位置', page: 'Variables', scope: 'global' },
-      { id: 'tb-y3',  name: 'y3',  value: '0',            type: 'double', comment: '星體3 Y 位置', page: 'Variables', scope: 'global' },
-      { id: 'tb-vx3', name: 'vx3', value: '-0.93240737',  type: 'double', comment: '星體3 X 速度', page: 'Variables', scope: 'global' },
-      { id: 'tb-vy3', name: 'vy3', value: '-0.86473146',  type: 'double', comment: '星體3 Y 速度', page: 'Variables', scope: 'global' },
-      // Mass
-      { id: 'tb-m',   name: 'm',   value: '1',            type: 'double', comment: '星體質量（三顆相同）', page: 'Variables', scope: 'global' },
-    ],
-    odePages: [{
-      id: 'tb-ode', name: '三體重力方程', method: 'RungeKutta', increment: '0.001', comment: '',
-      rates: [
-        // Body 1
-        { state: 'x1',  expression: 'vx1' },
-        { state: 'y1',  expression: 'vy1' },
-        { state: 'vx1', expression: 'm*(x2-x1)/Math.pow(Math.hypot(x2-x1,y2-y1),3) + m*(x3-x1)/Math.pow(Math.hypot(x3-x1,y3-y1),3)' },
-        { state: 'vy1', expression: 'm*(y2-y1)/Math.pow(Math.hypot(x2-x1,y2-y1),3) + m*(y3-y1)/Math.pow(Math.hypot(x3-x1,y3-y1),3)' },
-        // Body 2
-        { state: 'x2',  expression: 'vx2' },
-        { state: 'y2',  expression: 'vy2' },
-        { state: 'vx2', expression: 'm*(x1-x2)/Math.pow(Math.hypot(x1-x2,y1-y2),3) + m*(x3-x2)/Math.pow(Math.hypot(x3-x2,y3-y2),3)' },
-        { state: 'vy2', expression: 'm*(y1-y2)/Math.pow(Math.hypot(x1-x2,y1-y2),3) + m*(y3-y2)/Math.pow(Math.hypot(x3-x2,y3-y2),3)' },
-        // Body 3
-        { state: 'x3',  expression: 'vx3' },
-        { state: 'y3',  expression: 'vy3' },
-        { state: 'vx3', expression: 'm*(x1-x3)/Math.pow(Math.hypot(x1-x3,y1-y3),3) + m*(x2-x3)/Math.pow(Math.hypot(x2-x3,y2-y3),3)' },
-        { state: 'vy3', expression: 'm*(y1-y3)/Math.pow(Math.hypot(x1-x3,y1-y3),3) + m*(y2-y3)/Math.pow(Math.hypot(x2-x3,y2-y3),3)' },
-      ],
-    }],
-    constraintPages: [],
-    initPages: [],
-    viewElements: [
-      {
-        id: 'tb-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '400', Height: '300', MinimumX: '-1.6', MaximumX: '1.6', MinimumY: '-1.2', MaximumY: '1.2', Background: '"#FFFDF8"', SquareAspect: 'true' },
-      },
-      {
-        id: 'tb-trail1', type: 'Elements.Trail2D', name: '軌跡1', parent: 'DrawingPanel1',
-        properties: { X: 'x1', Y: 'y1', LineColor: '"#D1495B"', MaximumPoints: '2000' },
-      },
-      {
-        id: 'tb-trail2', type: 'Elements.Trail2D', name: '軌跡2', parent: 'DrawingPanel1',
-        properties: { X: 'x2', Y: 'y2', LineColor: '"#2A9D8F"', MaximumPoints: '2000' },
-      },
-      {
-        id: 'tb-trail3', type: 'Elements.Trail2D', name: '軌跡3', parent: 'DrawingPanel1',
-        properties: { X: 'x3', Y: 'y3', LineColor: '"#2F6FB0"', MaximumPoints: '2000' },
-      },
-      {
-        id: 'tb-star1', type: 'Elements.Shape2D', name: '星體1', parent: 'DrawingPanel1',
-        properties: { X: 'x1', Y: 'y1', SizeX: '0.1', SizeY: '0.1', ShapeType: 'ELLIPSE', FillColor: '"#F9E3E6"', LineColor: '"#D1495B"', Visible: 'true' },
-      },
-      {
-        id: 'tb-star2', type: 'Elements.Shape2D', name: '星體2', parent: 'DrawingPanel1',
-        properties: { X: 'x2', Y: 'y2', SizeX: '0.1', SizeY: '0.1', ShapeType: 'ELLIPSE', FillColor: '"#E3F2EF"', LineColor: '"#2A9D8F"', Visible: 'true' },
-      },
-      {
-        id: 'tb-star3', type: 'Elements.Shape2D', name: '星體3', parent: 'DrawingPanel1',
-        properties: { X: 'x3', Y: 'y3', SizeX: '0.1', SizeY: '0.1', ShapeType: 'ELLIPSE', FillColor: '"#E6EEF7"', LineColor: '"#2F6FB0"', Visible: 'true' },
-      },
-    ],
-  },
-
-  // ─────────────────────────────────────────────
-  // 7. 雙擺
-  // ─────────────────────────────────────────────
-  {
-    id: 'doublepend',
-    category: '力學',
-    listDescription: '兩個串聯的擺，展現混沌系統的特性。即使初始角度只差一點點，長時間後軌跡會完全不同——對初始條件的極端敏感性。',
-    description: HANDOUTS.doublepend,
-    difficulty: '進階',
-    info: { title: '雙擺', author: '', keywords: '', abstract: '' },
-    variables: [
-      { id: 'dpp-t1', name: 'theta1', value: '1.5708', type: 'double', comment: '擺1角度（弧度，π/2）', page: 'Variables', scope: 'global' },
-      { id: 'dpp-t2', name: 'theta2', value: '2.1',    type: 'double', comment: '擺2角度（弧度）', page: 'Variables', scope: 'global' },
-      { id: 'dpp-w1', name: 'omega1', value: '0',      type: 'double', comment: '擺1角速度', page: 'Variables', scope: 'global' },
-      { id: 'dpp-w2', name: 'omega2', value: '0',      type: 'double', comment: '擺2角速度', page: 'Variables', scope: 'global' },
-      { id: 'dpp-L1', name: 'L1',     value: '1.5',    type: 'double', comment: '擺1長度（公尺）', page: 'Variables', scope: 'global' },
-      { id: 'dpp-L2', name: 'L2',     value: '1.2',    type: 'double', comment: '擺2長度（公尺）', page: 'Variables', scope: 'global' },
-      { id: 'dpp-m1', name: 'm1',     value: '1',      type: 'double', comment: '擺1質量（kg）', page: 'Variables', scope: 'global' },
-      { id: 'dpp-m2', name: 'm2',     value: '1',      type: 'double', comment: '擺2質量（kg）', page: 'Variables', scope: 'global' },
-      { id: 'dpp-g',  name: 'g',      value: '9.8',    type: 'double', comment: '重力加速度', page: 'Variables', scope: 'global' },
-    ],
-    odePages: [{
-      id: 'dpp-ode', name: '雙擺方程（Lagrangian）', method: 'RungeKutta', increment: '0.005', comment: '',
-      rates: [
-        { state: 'theta1', expression: 'omega1' },
-        { state: 'theta2', expression: 'omega2' },
-        { state: 'omega1', expression: '(-g*(2*m1+m2)*Math.sin(theta1) - m2*g*Math.sin(theta1-2*theta2) - 2*Math.sin(theta1-theta2)*m2*(omega2*omega2*L2+omega1*omega1*L1*Math.cos(theta1-theta2))) / (L1*(2*m1+m2-m2*Math.cos(2*theta1-2*theta2)))' },
-        { state: 'omega2', expression: '(2*Math.sin(theta1-theta2)*(omega1*omega1*L1*(m1+m2)+g*(m1+m2)*Math.cos(theta1)+omega2*omega2*L2*m2*Math.cos(theta1-theta2))) / (L2*(2*m1+m2-m2*Math.cos(2*theta1-2*theta2)))' },
-      ],
-    }],
-    constraintPages: [],
-    initPages: [],
-    viewElements: [
-      {
-        id: 'dpp-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '400', Height: '380', MinimumX: '-3', MaximumX: '3', MinimumY: '-3', MaximumY: '1.5', Background: '"#FFFDF8"', SquareAspect: 'true' },
-      },
-      {
-        id: 'dpp-trail', type: 'Elements.Trail2D', name: '軌跡', parent: 'DrawingPanel1',
-        properties: { X: 'L1*Math.sin(theta1)+L2*Math.sin(theta2)', Y: '-(L1*Math.cos(theta1)+L2*Math.cos(theta2))', LineColor: '"#2F6FB0"', MaximumPoints: '2500' },
-      },
-      {
-        id: 'dpp-rod1', type: 'Elements.Arrow2D', name: '擺桿1', parent: 'DrawingPanel1',
-        properties: { X: '0', Y: '0', SizeX: 'L1*Math.sin(theta1)', SizeY: '-L1*Math.cos(theta1)', FillColor: '"#6B6F76"' },
-      },
-      {
-        id: 'dpp-rod2', type: 'Elements.Arrow2D', name: '擺桿2', parent: 'DrawingPanel1',
-        properties: { X: 'L1*Math.sin(theta1)', Y: '-L1*Math.cos(theta1)', SizeX: 'L2*Math.sin(theta2)', SizeY: '-L2*Math.cos(theta2)', FillColor: '"#6B6F76"' },
-      },
-      {
-        id: 'dpp-pivot', type: 'Elements.Shape2D', name: '支點', parent: 'DrawingPanel1',
-        properties: { X: '0', Y: '0', SizeX: '0.09', SizeY: '0.09', ShapeType: 'ELLIPSE', FillColor: '"#2B2D31"', LineColor: '"#2B2D31"', Visible: 'true' },
-      },
-      {
-        id: 'dpp-bob1', type: 'Elements.Shape2D', name: '擺錘1', parent: 'DrawingPanel1',
-        properties: { X: 'L1*Math.sin(theta1)', Y: '-L1*Math.cos(theta1)', SizeX: '0.2', SizeY: '0.2', ShapeType: 'ELLIPSE', FillColor: '"#E9A23B"', LineColor: '"#D68C26"', Visible: 'true' },
-      },
-      {
-        id: 'dpp-bob2', type: 'Elements.Shape2D', name: '擺錘2', parent: 'DrawingPanel1',
-        properties: { X: 'L1*Math.sin(theta1)+L2*Math.sin(theta2)', Y: '-(L1*Math.cos(theta1)+L2*Math.cos(theta2))', SizeX: '0.2', SizeY: '0.2', ShapeType: 'ELLIPSE', FillColor: '"#2A9D8F"', LineColor: '"#1A5B52"', Visible: 'true' },
-      },
-    ],
-  },
-
   // ─────────────────────────────────────────────
   // 8. 陰極射線管（CRT）— 電磁場偏折電子束
   // 電場（Ey）造成拋物線偏折，磁場（Bz）造成圓弧偏折
@@ -431,6 +35,10 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
       { id: 'crt-Ey', name: 'Ey', value: '0',    type: 'double', comment: '電場（Y方向，正值向下偏折電子）', page: 'Variables', scope: 'global' },
       { id: 'crt-Bz', name: 'Bz', value: '0',    type: 'double', comment: '磁場（垂直螢幕，正值指向外側）', page: 'Variables', scope: 'global' },
       { id: 'crt-v0', name: 'v0', value: '5',    type: 'double', comment: '電子初速（由電子槍加速決定）', page: 'Variables', scope: 'global' },
+      ...doubles('crt', [
+        ['yHit', '0', '預測打在螢光屏上的高度（打不到時為 NaN 以外的提示）'],
+        ['hitScreen', '1', '電子能否打到螢光屏（1 = 能）'],
+      ]),
     ],
     odePages: [{
       id: 'crt-ode', name: '電子洛倫茲運動', method: 'RungeKutta', increment: '0.004', comment: '',
@@ -444,6 +52,21 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
     constraintPages: [{
       id: 'crt-con', name: '邊界重置', comment: '',
       code: 'if(x >= 4.1 || Math.abs(y) >= 2.8) {\n  x = -3.8; y = 0; vx = v0; vy = 0;\n}',
+    }, {
+      id: 'crt-con2', name: '預測落點', comment: '參數改變時，沿用電子方程預先積分一次，求出打在螢光屏（x = 4.2）的高度',
+      code: String.raw`var sig = Ey + '|' + Bz + '|' + v0;
+if (_v._sig !== sig) {
+  _v._sig = sig;
+  var px = -3.8, py = 0, pvx = v0, pvy = 0, h = 0.002;
+  hitScreen = 0;
+  for (var i = 0; i < 20000; i++) {
+    var ax = -pvy * Bz, ay = pvx * Bz - Ey;
+    pvx += ax * h; pvy += ay * h; px += pvx * h; py += pvy * h;
+    if (px >= 4.2) { hitScreen = 1; break; }
+    if (Math.abs(py) >= 2.8 || px < -5) break;
+  }
+  yHit = hitScreen ? py : 0;
+}`,
     }],
     initPages: [{
       id: 'crt-init', name: '設定初速', comment: '',
@@ -452,7 +75,7 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
     viewElements: [
       {
         id: 'crt-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '500', Height: '300', MinimumX: '-5', MaximumX: '5', MinimumY: '-3', MaximumY: '3', Background: '"#FFFDF8"', SquareAspect: 'false' },
+        properties: { Width: '600', Height: '360', MinimumX: '-5', MaximumX: '5', MinimumY: '-3', MaximumY: '3', Background: '"#FFFDF8"', SquareAspect: 'false' },
       },
       {
         id: 'crt-sEy', type: 'Elements.Slider', name: '電場滑桿', parent: '',
@@ -466,6 +89,13 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
         id: 'crt-sv0', type: 'Elements.Slider', name: '初速滑桿', parent: '',
         properties: { Variable: 'v0', Minimum: '1', Maximum: '9', Step: '0.5', Label: '初速 v₀' },
       },
+      readout('crt-r-Ey', '電場 Ey', 'Ey', { digits: 2, color: C.red, group: '場與初速' }),
+      readout('crt-r-Bz', '磁場 Bz', 'Bz', { digits: 2, color: C.blue, group: '場與初速' }),
+      readout('crt-r-v0', '初速 v₀', 'v0', { digits: 1, color: C.amber, group: '場與初速' }),
+      readout('crt-r-y', '螢光屏落點 y', 'hitScreen ? yHit : "打不到螢光屏"', { digits: 3, color: C.teal, group: '量測' }),
+      readout('crt-r-vs', '速度選擇器 v = E/B', 'Math.abs(Bz) > 1e-9 ? Ey / Bz : "—（B = 0）"', { digits: 3, color: C.purple, group: '量測' }),
+      readout('crt-r-r', '迴旋半徑 r = v₀/|B|', 'Math.abs(Bz) > 1e-9 ? v0 / Math.abs(Bz) : "∞"', { digits: 3, color: C.blue, group: '量測' }),
+      readout('crt-r-vy', '電子目前 vᵧ', 'vy', { digits: 3, color: C.muted, group: '量測' }),
       {
         id: 'crt-draw', type: 'Elements.CustomDraw', name: 'CRTDraw', parent: 'DrawingPanel1',
         properties: {
@@ -529,10 +159,6 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
             '  }',
             '}',
             // labels
-            'ctx.font="12px monospace";ctx.textAlign="left";ctx.fillStyle="#2B2D31";',
-            'ctx.fillText("Ey = "+Ey.toFixed(2),8,18);',
-            'ctx.fillText("Bz = "+Bz.toFixed(2),8,34);',
-            'ctx.fillText("v₀ = "+v0.toFixed(1),8,50);',
             'ctx.fillStyle="#6B6F76";ctx.textAlign="center";',
             'ctx.fillText("電子槍",toPixX(-4.5),toPixY(-2.5));',
             'ctx.fillText("螢光屏",toPixX(4.6),toPixY(-2.5));',
@@ -580,7 +206,7 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
     viewElements: [
       {
         id: 'sn-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '420', Height: '300', MinimumX: '-4', MaximumX: '4', MinimumY: '-3', MaximumY: '3', Background: '"#FFFDF8"', SquareAspect: 'false' },
+        properties: { Width: '560', Height: '420', MinimumX: '-4', MaximumX: '4', MinimumY: '-3', MaximumY: '3', Background: '"#FFFDF8"', SquareAspect: 'false' },
       },
       {
         id: 'sn-sT1', type: 'Elements.Slider', name: 'Slider_theta1', parent: '',
@@ -594,6 +220,13 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
         id: 'sn-sN2', type: 'Elements.Slider', name: 'Slider_n2', parent: '',
         properties: { Variable: 'n2', Minimum: '1.0', Maximum: '2.5', Step: '0.1', Label: '介質 2 折射率 n₂' },
       },
+      readout('sn-r-t1', '入射角 θ₁', 'theta1 * 180 / Math.PI', { unit: '°', digits: 1, color: C.amber, group: '角度' }),
+      readout('sn-r-tr', '反射角 θ₁′', 'theta1 * 180 / Math.PI', { unit: '°', digits: 1, color: C.amber, group: '角度' }),
+      readout('sn-r-t2', '折射角 θ₂', 'n1 * Math.sin(theta1) / n2 > 0.9999 ? "全反射" : theta2 * 180 / Math.PI', { unit: '°', digits: 1, color: C.teal, group: '角度' }),
+      readout('sn-r-tc', '臨界角 θc', 'n1 > n2 ? Math.asin(n2 / n1) * 180 / Math.PI : "無（n₁ ≤ n₂）"', { unit: '°', digits: 1, color: C.red, group: '角度' }),
+      readout('sn-r-snell', 'n₁ sinθ₁', 'n1 * Math.sin(theta1)', { digits: 4, color: C.ink, group: '司乃耳定律檢驗' }),
+      readout('sn-r-snell2', 'n₂ sinθ₂', 'n1 * Math.sin(theta1) / n2 > 0.9999 ? "—" : n2 * Math.sin(theta2)', { digits: 4, color: C.ink, group: '司乃耳定律檢驗' }),
+      readout('sn-r-lam', '波長比 λ₂/λ₁ = 速率比', 'n1 / n2', { digits: 3, color: C.blue, group: '司乃耳定律檢驗' }),
       {
         id: 'sn-draw', type: 'Elements.CustomDraw', name: 'WavefrontDraw', parent: 'DrawingPanel1',
         properties: {
@@ -761,6 +394,11 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
       { id: 'ig-N', name: 'nParticles', value: '100', type: 'double', comment: '粒子數（50~300）', page: 'Variables', scope: 'global' },
       { id: 'ig-T', name: 'temperature', value: '1.0', type: 'double', comment: '目標溫度',        page: 'Variables', scope: 'global' },
       { id: 'ig-P', name: 'pressure',    value: '0',   type: 'double', comment: '即時壓力',         page: 'Variables', scope: 'global' },
+      ...doubles('ig', [
+        ['Tkin', '1', '由平均動能算出的溫度（二維：⟨½mv²⟩ = kT）'],
+        ['PVNkT', '0', 'PA / (NkT)'],
+        ['Pavg', '0', '壓力的長時間平均'],
+      ]),
     ],
     odePages: [],
     constraintPages: [{
@@ -791,13 +429,17 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
         '}',
         'var curT=Physics.Thermo.temperature2D(_v._vx,_v._vy,N,1.0);',
         'Physics.Thermo.applyBerendsenThermostat(_v._vx,_v._vy,N,Math.max(0.1,temperature),curT,dt,0.5);',
+        'Tkin=curT;',
+        '// 壓力的指數移動平均，讀數較穩定',
+        'if(pressure>0){Pavg=Pavg>0?Pavg+(pressure-Pavg)*0.01:pressure;}',
+        'PVNkT=Pavg>0?Pavg*4*L*L/(N*Math.max(0.1,temperature)):0;',
       ].join('\n'),
     }],
     initPages: [],
     viewElements: [
       {
         id: 'ig-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
-        properties: { Width: '420', Height: '420', MinimumX: '-4', MaximumX: '4', MinimumY: '-4', MaximumY: '4', Background: '"#FFFDF8"', SquareAspect: 'true' },
+        properties: { Width: '640', Height: '420', MinimumX: '-4', MaximumX: '8.190476', MinimumY: '-4', MaximumY: '4', Background: '"#FFFDF8"', SquareAspect: 'true' },
       },
       {
         id: 'ig-sN', type: 'Elements.Slider', name: 'Slider_N', parent: '',
@@ -807,10 +449,19 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
         id: 'ig-sT', type: 'Elements.Slider', name: 'Slider_T', parent: '',
         properties: { Variable: 'temperature', Minimum: '0.1', Maximum: '4.0', Step: '0.1', Label: '溫度 T' },
       },
+      readout('ig-r-N', '粒子數 N', 'Math.max(50, Math.min(300, Math.round(nParticles)))', { digits: 0, color: C.ink, group: '狀態量' }),
+      readout('ig-r-T', '目標溫度 T', 'temperature', { digits: 2, color: C.red, group: '狀態量' }),
+      readout('ig-r-Tk', '實測溫度（平均動能）', 'Tkin', { digits: 3, color: C.red, group: '狀態量' }),
+      readout('ig-r-P', '瞬時壓力 P', 'pressure', { digits: 3, color: C.blue, group: '狀態量' }),
+      readout('ig-r-Pa', '平均壓力 ⟨P⟩', 'Pavg', { digits: 3, color: C.blue, group: '狀態量' }),
+      readout('ig-r-pv', 'PA / (NkT)', 'PVNkT > 0 ? PVNkT : "…"', { digits: 3, color: C.teal, group: '理想氣體方程（理論值 1）' }),
+      readout('ig-r-vp', '最可能速率 √(kT/m)', 'Math.sqrt(temperature)', { digits: 3, color: C.muted, group: '速率分布（二維）' }),
+      readout('ig-r-vrms', '方均根速率 √(2kT/m)', 'Math.sqrt(2 * temperature)', { digits: 3, color: C.muted, group: '速率分布（二維）' }),
       {
         id: 'ig-draw', type: 'Elements.CustomDraw', name: 'GasDraw', parent: 'DrawingPanel1',
         properties: {
           Code: [
+            'ctx.fillStyle="#FFFDF8";ctx.fillRect(0,0,W,H);',
             'var N=Math.round(vars.nParticles||100);',
             'var L=3.5,r=0.07;',
             'var px=vars._px,py=vars._py,vx=vars._vx,vy=vars._vy;',
@@ -827,18 +478,22 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
             '    ctx.beginPath();ctx.arc(toPixX(px[i]),toPixY(py[i]),pr,0,Math.PI*2);ctx.fill();',
             '  }',
             '}',
-            'var T=vars.temperature||1,P=vars.pressure||0;',
-            'var V=4*L*L,pv_nkt=P>0.01?((P*V)/(N*T)).toFixed(2):"...";',
-            'ctx.fillStyle="rgba(255,255,255,0.9)";',
-            'ctx.fillRect(W-140,6,134,90);',
-            'ctx.strokeStyle="#E5E1D8";',
-            'ctx.strokeRect(W-140,6,134,90);',
-            'ctx.fillStyle="#2B2D31";ctx.font="bold 12px monospace";',
-            'ctx.fillText("粒子數 N = "+N,W-132,24);',
-            'ctx.fillText("溫度  T = "+T.toFixed(2),W-132,42);',
-            'ctx.fillText("壓力  P = "+P.toFixed(2),W-132,60);',
-            'ctx.fillStyle="#2A9D8F";',
-            'ctx.fillText("PV/NkT = "+pv_nkt,W-132,82);',
+            '// ── 速率分布直方圖與二維馬克士威–波茲曼分布 ──',
+            'var T=Math.max(0.1,vars.temperature||1),hx=toPixX(4.15),hw=W-hx-10,top=16,hh=H-60;',
+            'var nb=20,vmax=4*Math.sqrt(T),bins=[];for(var b=0;b<nb;b++)bins.push(0);',
+            'if(px&&px.length>=N){for(var j=0;j<N;j++){var s=Math.sqrt(vx[j]*vx[j]+vy[j]*vy[j]);var k=Math.floor(s/vmax*nb);if(k>=0&&k<nb)bins[k]++;}}',
+            'var bw=vmax/nb,fmax=0;for(var q=0;q<=60;q++){var vv=q*vmax/60;var ff=N*bw*(vv/T)*Math.exp(-vv*vv/(2*T));if(ff>fmax)fmax=ff;}',
+            'var ymax=Math.max(fmax,Math.max.apply(null,bins))*1.15||1;',
+            'ctx.fillStyle="#FFFFFF";ctx.fillRect(hx,top,hw,hh);ctx.strokeStyle="#E5E1D8";ctx.strokeRect(hx+0.5,top+0.5,hw-1,hh-1);',
+            'ctx.fillStyle="rgba(47,111,176,0.45)";',
+            'for(var b2=0;b2<nb;b2++){var bh2=bins[b2]/ymax*(hh-40);ctx.fillRect(hx+20+b2*(hw-30)/nb+1,top+hh-20-bh2,(hw-30)/nb-2,bh2);}',
+            'ctx.strokeStyle="#D1495B";ctx.lineWidth=2;ctx.beginPath();',
+            'for(var q2=0;q2<=60;q2++){var v2=q2*vmax/60,f2=N*bw*(v2/T)*Math.exp(-v2*v2/(2*T));var X2=hx+20+v2/vmax*(hw-30),Y2=top+hh-20-f2/ymax*(hh-40);if(q2)ctx.lineTo(X2,Y2);else ctx.moveTo(X2,Y2);}',
+            'ctx.stroke();',
+            'ctx.fillStyle="#2B2D31";ctx.font="bold 11px sans-serif";ctx.textAlign="left";ctx.fillText("粒子速率分布",hx+8,top+14);',
+            'ctx.fillStyle="#D1495B";ctx.font="10px sans-serif";ctx.fillText("— 二維 M–B 分布",hx+8,top+28);',
+            'ctx.fillStyle="#6B6F76";ctx.font="10px monospace";ctx.textAlign="center";',
+            'ctx.fillText("0",hx+20,top+hh-6);ctx.fillText("速率 v",hx+hw/2,top+hh-6);ctx.fillText(vmax.toFixed(1),hx+hw-10,top+hh-6);',
           ].join('\n'),
         },
       },
@@ -868,6 +523,10 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
         ['eps2', '0.09', '軟化長度平方 ε²（避免近距離相遇時力發散）'],
         ['camYaw', '0.5', '相機偏航角 Yaw（弧度），可在畫面上拖曳改變'],
         ['camPitch', '0.4', '相機俯仰角 Pitch（弧度），可在畫面上拖曳改變'],
+        ['E', '0', '總能量（含軟化位能）'],
+        ['P', '0', '總動量大小'],
+        ['Lmag', '0', '總角動量大小'],
+        ['Lz', '0', '總角動量 z 分量'],
       ]),
     ],
     odePages: [{
@@ -881,13 +540,30 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
         { state: `vz${i}`, expression: gravity3D(i, 'z') },
       ]),
     }],
-    constraintPages: [],
+    constraintPages: [{
+      id: 'tb3-con', name: '守恆量', comment: '',
+      code: String.raw`var K = 0.5 * m * (vx1 * vx1 + vy1 * vy1 + vz1 * vz1 + vx2 * vx2 + vy2 * vy2 + vz2 * vz2 + vx3 * vx3 + vy3 * vy3 + vz3 * vz3);
+function dd(ax, ay, az, bx, by, bz) { return Math.sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by) + (az - bz) * (az - bz) + eps2); }
+E = K - m * m * (1 / dd(x1, y1, z1, x2, y2, z2) + 1 / dd(x1, y1, z1, x3, y3, z3) + 1 / dd(x2, y2, z2, x3, y3, z3));
+P = m * Math.sqrt(Math.pow(vx1 + vx2 + vx3, 2) + Math.pow(vy1 + vy2 + vy3, 2) + Math.pow(vz1 + vz2 + vz3, 2));
+var Lx = m * (y1 * vz1 - z1 * vy1 + y2 * vz2 - z2 * vy2 + y3 * vz3 - z3 * vy3);
+var Ly = m * (z1 * vx1 - x1 * vz1 + z2 * vx2 - x2 * vz2 + z3 * vx3 - x3 * vz3);
+Lz = m * (x1 * vy1 - y1 * vx1 + x2 * vy2 - y2 * vx2 + x3 * vy3 - y3 * vx3);
+Lmag = Math.sqrt(Lx * Lx + Ly * Ly + Lz * Lz);`,
+    }],
     initPages: [],
     viewElements: [
       {
         id: 'tb3-dp', type: 'Elements.DrawingPanel', name: 'DrawingPanel1', parent: '',
         properties: { Width: '420', Height: '420', MinimumX: '-2.3', MaximumX: '2.3', MinimumY: '-2.3', MaximumY: '2.3', Background: '"#FFFDF8"', SquareAspect: 'true' },
       },
+      readout('tb3-r-E', '總能量 E', 'E', { digits: 5, color: C.teal, group: '守恆量' }),
+      readout('tb3-r-P', '總動量 |P|', 'P', { color: C.ink, group: '守恆量' }),
+      readout('tb3-r-L', '總角動量 |L|', 'Lmag', { digits: 4, color: C.purple, group: '守恆量' }),
+      readout('tb3-r-Lz', '角動量 L_z', 'Lz', { digits: 4, color: C.purple, group: '守恆量' }),
+      readout('tb3-r-r12', '星體 1–2 距離', 'Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) + (z2 - z1) * (z2 - z1))', { digits: 3, color: C.red, group: '幾何' }),
+      readout('tb3-r-yaw', '相機 Yaw', 'camYaw * 180 / Math.PI', { unit: '°', digits: 0, color: C.muted, group: '相機（拖曳畫面旋轉）' }),
+      readout('tb3-r-pitch', '相機 Pitch', 'camPitch * 180 / Math.PI', { unit: '°', digits: 0, color: C.muted, group: '相機（拖曳畫面旋轉）' }),
       {
         id: 'tb3-draw', type: 'Elements.CustomDraw', name: '3D畫布渲染器', parent: 'DrawingPanel1',
         properties: {
@@ -1011,8 +687,6 @@ const CLASSIC_EXAMPLES: ExampleDef[] = [
             '',
             'ctx.fillStyle = "#6B6F76"; ctx.font = "12px monospace"; ctx.textAlign = "left";',
             'ctx.fillText("按住拖曳旋轉視角（播放中亦可）", 12, 22);',
-            'ctx.fillText("Yaw: " + yaw.toFixed(2) + " rad", 12, 40);',
-            'ctx.fillText("Pitch: " + pitch.toFixed(2) + " rad", 12, 58);',
           ].join('\n'),
         },
       },
