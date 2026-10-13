@@ -25,7 +25,7 @@ export const EL_DEF_SIZES: Record<string, [number, number]> = {
   'Elements.PlottingPanel': [300, 200],
   'Elements.Button': [80, 32],
   'Elements.TwoStateButton': [80, 32],
-  'Elements.Slider': [200, 32],
+  'Elements.Slider': [200, 40],
   'Elements.Label': [100, 24],
   'Elements.ParsedField': [80, 24],
 };

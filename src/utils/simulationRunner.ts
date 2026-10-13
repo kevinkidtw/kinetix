@@ -168,6 +168,7 @@ const COMMON_CSS = `
   .sim-slider {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 2px;
     font-size: 13px;
     font-family: inherit;
@@ -188,9 +189,13 @@ const COMMON_CSS = `
   }
   .sl-inp {
     width: 100%;
+    height: 16px;
+    margin: 0;
     cursor: pointer;
     accent-color: #2A9D8F;
   }
+  /* Phone layout (set by the runtime): full-size rows, bigger touch target */
+  #sim-root.narrow .sl-inp { height: 26px; }
   .sl-val {
     flex-shrink: 0;
     color: #2A9D8F;
@@ -212,6 +217,7 @@ export function buildPreviewHTML(state: SimulationState): string {
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 ${COMMON_CSS}
 </style>
@@ -245,6 +251,7 @@ export function buildSimulationHTML(state: SimulationState): string {
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${titleEsc}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -257,7 +264,7 @@ export function buildSimulationHTML(state: SimulationState): string {
   ${COMMON_CSS}
   .app-container { display: flex; width: 100%; height: 100%; overflow: hidden; }
   .desc-panel { flex: 1; overflow-y: auto; padding: 28px 32px; background: #FFFFFF; border-right: 1px solid #E5E1D8; }
-  .sim-panel { width: 560px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 24px 20px; gap: 14px; overflow-y: auto; background: #FAF8F3; border-left: 1px solid #E5E1D8; }
+  .sim-panel { width: clamp(440px, 46vw, ${bbW + 48}px); flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 24px 20px; gap: 14px; overflow-y: auto; background: #FAF8F3; border-left: 1px solid #E5E1D8; }
 
   /* Markdown & KaTeX styling */
   .desc-panel h1, .desc-panel h2, .desc-panel h3 { color: #2B2D31; margin-top: 24px; margin-bottom: 12px; font-weight: 700; }
@@ -270,6 +277,10 @@ export function buildSimulationHTML(state: SimulationState): string {
   .desc-panel pre code { background: none; border: none; padding: 0; color: #2B2D31; }
   .desc-panel blockquote { border-left: 4px solid #2F6FB0; padding-left: 12px; margin: 12px 0; color: #6B6F76; }
   .desc-panel ul, .desc-panel ol { padding-left: 22px; margin: 8px 0; line-height: 1.6; }
+  .desc-panel table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 14px 0; font-size: 0.95em; }
+  .desc-panel th, .desc-panel td { border: 1px solid #E5E1D8; padding: 6px 10px; text-align: left; }
+  .desc-panel th { background: #FAF8F3; }
+  .desc-panel .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
 
   /* Sim controls bar */
   .sim-title { margin: 0; font-size: 16px; color: #2B2D31; font-weight: 700; text-align: center; }
@@ -313,7 +324,7 @@ export function buildSimulationHTML(state: SimulationState): string {
     position: relative;
     width: 100%;
     max-width: ${bbW}px;
-    height: ${bbH}px;
+    aspect-ratio: ${bbW} / ${bbH};
     background: #FFFFFF;
     border: 1px solid #E5E1D8;
     border-radius: 12px;
@@ -321,10 +332,17 @@ export function buildSimulationHTML(state: SimulationState): string {
     box-shadow: 0 1px 3px rgba(43,45,49,0.04);
   }
 
+  /* Tablets and phones: one scrolling column, simulation first */
   @media (max-width: 960px) {
-    .app-container { flex-direction: column; }
-    .desc-panel { border-right: none; border-bottom: 1px solid #E5E1D8; }
-    .sim-panel { width: 100%; border-left: none; }
+    html, body { height: auto; overflow: auto; }
+    .app-container { flex-direction: column; height: auto; overflow: visible; }
+    .sim-panel { order: -1; width: 100%; border-left: none; border-bottom: 1px solid #E5E1D8; padding: 14px 10px 18px; overflow: visible; }
+    .desc-panel { border-right: none; overflow: visible; padding: 20px 16px calc(28px + env(safe-area-inset-bottom)); }
+    .desc-panel h1 { font-size: 1.45em; }
+  }
+  @media (pointer: coarse) {
+    .bar-btn { padding: 10px 14px; font-size: 14px; }
+    .speed-select { padding: 9px 8px; font-size: 14px; }
   }
 </style>
 </head>

@@ -47,6 +47,10 @@ export function startWorker(): void {
           engine.exec(data.code);
           break;
         }
+        case 'snapshot': {
+          post({ type: 'snapshot', snapshot: engine.snapshot() });
+          break;
+        }
         case 'exportCSV': {
           const csv = engine.exportCSV();
           post({ type: 'csv', csv });

@@ -1,5 +1,4 @@
 import type { CompiledExpr, RtViewElement, VarBag } from '../core/types';
-import type { EngineProxy } from './engineProxy';
 
 export interface ControlActions {
   onPlay: () => void;
@@ -7,11 +6,20 @@ export interface ControlActions {
   onReset: () => void;
   onStep: () => void;
   onRender: () => void;
+  onSetVars: (patch: Record<string, unknown>) => void;
+  onExec: (code: string) => void;
 }
 
 export interface ControlsManager {
-  bind(viewElements: RtViewElement[], proxy: EngineProxy, actions: ControlActions): void;
+  bind(viewElements: RtViewElement[], actions: ControlActions): void;
   update(viewVars: VarBag): void;
+}
+
+/** Decimal places that resolve a slider's step (0.005 → 3, 0.1 → 1, 5 → 0). */
+function sliderDecimals(step: string | undefined): number {
+  const s = parseFloat(step ?? '');
+  if (!(s > 0)) return 2;
+  return Math.min(4, Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)));
 }
 
 export function createControlsManager(
@@ -19,7 +27,7 @@ export function createControlsManager(
 ): ControlsManager {
   let boundElements: RtViewElement[] = [];
 
-  function execAction(action: string | undefined, proxy: EngineProxy, actions: ControlActions) {
+  function execAction(action: string | undefined, actions: ControlActions) {
     if (!action) return;
     const a = action.replace(/%/g, '').trim();
     if (a === '_play' || a === '_resume') {
@@ -31,12 +39,12 @@ export function createControlsManager(
     } else if (a === '_step') {
       actions.onStep();
     } else {
-      proxy.exec(a);
+      actions.onExec(a);
     }
   }
 
   return {
-    bind(viewElements: RtViewElement[], proxy: EngineProxy, actions: ControlActions) {
+    bind(viewElements: RtViewElement[], actions: ControlActions) {
       boundElements = viewElements;
 
       viewElements.forEach((el) => {
@@ -52,16 +60,15 @@ export function createControlsManager(
           inp.addEventListener('input', () => {
             const num = parseFloat(inp.value);
             if (valEl) {
-              valEl.textContent = num.toFixed(2);
+              valEl.textContent = num.toFixed(sliderDecimals(p.Step));
             }
-            proxy.setVars({ [vn]: num });
-            actions.onRender();
+            actions.onSetVars({ [vn]: num });
           });
         } else if (el.type === 'Elements.Button') {
           const btn = document.getElementById(`btn_${el.id}`);
           if (!btn) return;
           btn.addEventListener('click', () => {
-            execAction(p.OnClick, proxy, actions);
+            execAction(p.OnClick, actions);
           });
         } else if (el.type === 'Elements.TwoStateButton') {
           const btn = document.getElementById(`tsb_${el.id}`);
@@ -69,8 +76,8 @@ export function createControlsManager(
           btn.addEventListener('click', () => {
             const stateVar = p.State || '_isPaused';
             const isOn = btn.dataset.state === 'true';
-            proxy.setVars({ [stateVar]: !isOn });
-            execAction(isOn ? p.OnClick : p.OffClick, proxy, actions);
+            actions.onSetVars({ [stateVar]: !isOn });
+            execAction(isOn ? p.OnClick : p.OffClick, actions);
           });
         }
       });
@@ -111,7 +118,7 @@ export function createControlsManager(
             const currentVal = Number(viewVars[vn]);
             inp.value = String(currentVal);
             if (valEl) {
-              valEl.textContent = currentVal.toFixed(2);
+              valEl.textContent = currentVal.toFixed(sliderDecimals(p.Step));
             }
           }
         }

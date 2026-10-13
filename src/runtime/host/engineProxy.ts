@@ -18,6 +18,8 @@ export interface EngineProxy {
   reset(): Promise<EngineSnapshot>;
   step(): Promise<EngineSnapshot>;
   advance(realDt: number): Promise<EngineSnapshot>;
+  /** Current state without advancing time (e.g. after setVars while paused). */
+  snapshot(): Promise<EngineSnapshot>;
   setSpeed(speed: number): void;
   setVars(patch: Record<string, unknown>): void;
   exec(code: string): void;
@@ -57,6 +59,10 @@ export class InlineEngineProxy implements EngineProxy {
 
   async advance(realDt: number): Promise<EngineSnapshot> {
     this.engine.advance(realDt);
+    return this.engine.snapshot();
+  }
+
+  async snapshot(): Promise<EngineSnapshot> {
     return this.engine.snapshot();
   }
 
@@ -176,6 +182,10 @@ export class WorkerEngineProxy implements EngineProxy {
 
   advance(realDt: number): Promise<EngineSnapshot> {
     return this.post({ type: 'advance', realDt }, 'snapshot');
+  }
+
+  snapshot(): Promise<EngineSnapshot> {
+    return this.post({ type: 'snapshot' }, 'snapshot');
   }
 
   setSpeed(speed: number): void {

@@ -20,6 +20,8 @@ export default function StagePanel() {
   const [loaded, setLoaded] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
+  // Height requested by the runtime when it re-flows for a narrow (phone) width.
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [statusInfo, setStatusInfo] = useState<{
     t: number;
     mode: 'worker' | 'main';
@@ -86,6 +88,7 @@ export default function StagePanel() {
     const handleMessage = (e: MessageEvent) => {
       const data = e.data;
       if (!data || typeof data !== 'object') return;
+      if (e.source !== iframeRef.current?.contentWindow) return;
 
       if (data.type === 'csvData') {
         const { csv, title } = data;
@@ -96,6 +99,8 @@ export default function StagePanel() {
         a.download = `${title || 'simulation'}_data.csv`;
         a.click();
         URL.revokeObjectURL(url);
+      } else if (data.type === 'ejss:contentHeight') {
+        setContentHeight(typeof data.height === 'number' && data.height > 0 ? data.height : null);
       } else if (data.type === 'ejss:diagnostics') {
         setDiagnostics(data.diagnostics || []);
       } else if (data.type === 'ejss:status') {
@@ -152,13 +157,13 @@ export default function StagePanel() {
   return (
     <div className="flex flex-col h-full bg-[#FAF8F3] overflow-y-auto text-[#2B2D31]">
       {/* Top Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-[#FFFFFF] border-b border-[#E5E1D8] flex-shrink-0">
-        <span className="text-xs font-bold text-[#2B2D31] mr-1 tracking-wide truncate max-w-[140px]">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-[#FFFFFF] border-b border-[#E5E1D8] flex-shrink-0">
+        <span className="hidden sm:inline text-xs font-bold text-[#2B2D31] mr-1 tracking-wide truncate max-w-[140px]">
           {store.info.title || '無標題模擬'}
         </span>
 
         {/* Speed menu */}
-        <div className="flex items-center gap-1 ml-auto text-xs font-medium text-[#6B6F76]">
+        <div className="flex items-center gap-1 sm:ml-auto text-xs font-medium text-[#6B6F76]">
           <Gauge className="w-3.5 h-3.5 text-[#6B6F76]" />
           <select
             value={speed}
@@ -185,6 +190,8 @@ export default function StagePanel() {
           </button>
           <button
             onClick={handlePause}
+            title="暫停"
+            aria-label="暫停"
             disabled={!loaded}
             className="flex items-center gap-1 bg-[#6B6F76] hover:bg-[#565A60] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed text-white rounded-[10px] px-2 py-1 text-xs font-bold transition-all active:scale-[0.98] shadow-sm cursor-pointer"
           >
@@ -192,6 +199,8 @@ export default function StagePanel() {
           </button>
           <button
             onClick={handleStep}
+            title="單步"
+            aria-label="單步"
             disabled={!hasContent}
             className="flex items-center gap-1 bg-[#2F6FB0] hover:bg-[#275D94] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed text-white rounded-[10px] px-2 py-1 text-xs font-semibold transition-all active:scale-[0.98] shadow-sm cursor-pointer"
           >
@@ -199,6 +208,8 @@ export default function StagePanel() {
           </button>
           <button
             onClick={handleReset}
+            title="重置"
+            aria-label="重置"
             disabled={!hasContent}
             className="flex items-center gap-1 bg-[#2B2D31] hover:bg-[#1C1E22] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed text-white rounded-[10px] px-2 py-1 text-xs font-bold transition-all active:scale-[0.98] shadow-sm cursor-pointer"
           >
@@ -208,9 +219,10 @@ export default function StagePanel() {
             onClick={() => sendMsg('exportCSV')}
             disabled={!loaded}
             title="匯出物理數據軌跡成 CSV 檔案"
+            aria-label="匯出數據"
             className="flex items-center gap-1 bg-[#2A9D8F] hover:bg-[#228478] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed text-white rounded-[10px] px-2.5 py-1 text-xs font-semibold transition-all active:scale-[0.98] shadow-sm cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" /> 匯出數據
+            <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">匯出數據</span>
           </button>
         </div>
       </div>
@@ -218,7 +230,7 @@ export default function StagePanel() {
       {/* Stage Container */}
       <div
         className="w-full flex-shrink-0 relative bg-[#FFFFFF] border-b border-[#E5E1D8]"
-        style={{ aspectRatio: `${bbox.w} / ${bbox.h}` }}
+        style={contentHeight ? { height: contentHeight } : { aspectRatio: `${bbox.w} / ${bbox.h}` }}
       >
         {!loaded && (
           <div
@@ -246,7 +258,7 @@ export default function StagePanel() {
       </div>
 
       {/* Status Bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#FFFFFF] border-b border-[#E5E1D8] text-[11px] text-[#6B6F76] flex-shrink-0">
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-[#FFFFFF] border-b border-[#E5E1D8] text-[11px] text-[#6B6F76] flex-shrink-0">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1">
             <Cpu className="w-3 h-3 text-[#2F6FB0]" />
@@ -257,10 +269,10 @@ export default function StagePanel() {
               {statusInfo.mode === 'worker' ? 'Web Worker' : '主執行緒 (Main)'}
             </span>
           </span>
-          <span>
+          <span className="hidden sm:inline">
             步數/秒: <span className="font-mono text-[#2B2D31]">{statusInfo.perf.stepsPerSec}</span>
           </span>
-          <span>
+          <span className="hidden md:inline">
             即時比:{' '}
             <span className="font-mono text-[#2B2D31]">
               {(statusInfo.perf.realtimeRatio * 100).toFixed(0)}%

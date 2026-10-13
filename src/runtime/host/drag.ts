@@ -1,15 +1,14 @@
 import type { CompiledExpr, RtViewElement, VarBag } from '../core/types';
 import type { DrawingPanelState } from './render/drawingPanel';
 import { toWorldLen, toWorldX, toWorldY } from './render/drawingPanel';
-import type { EngineProxy } from './engineProxy';
 
 export interface DragHandlerOptions {
   panel: DrawingPanelState;
   elements: RtViewElement[];
   viewVars: VarBag;
   compiledExprs: Map<string, CompiledExpr>;
-  proxy: EngineProxy;
-  onRender: () => void;
+  /** Applies a patch to both the view bag and the engine, then re-renders. */
+  setVars: (patch: Record<string, unknown>) => void;
 }
 
 type DragTarget =
@@ -29,7 +28,7 @@ type DragTarget =
     };
 
 export function setupDragHandler(options: DragHandlerOptions): () => void {
-  const { panel, elements, viewVars, compiledExprs, proxy, onRender } = options;
+  const { panel, elements, viewVars, compiledExprs, setVars } = options;
   const c = panel.canvas;
   let dragTarget: DragTarget | null = null;
 
@@ -141,11 +140,9 @@ export function setupDragHandler(options: DragHandlerOptions): () => void {
       const xName = p.X?.trim() ?? '';
       const yName = p.Y?.trim() ?? '';
       if (xName && viewVars[xName] !== undefined) {
-        viewVars[xName] = newX;
         patch[xName] = newX;
       }
       if (yName && viewVars[yName] !== undefined) {
-        viewVars[yName] = newY;
         patch[yName] = newY;
       }
     } else if (dragTarget.type === 'arrow') {
@@ -154,19 +151,16 @@ export function setupDragHandler(options: DragHandlerOptions): () => void {
       const sxName = p.SizeX?.trim() ?? '';
       const syName = p.SizeY?.trim() ?? '';
       if (sxName && viewVars[sxName] !== undefined) {
-        viewVars[sxName] = newVx;
         patch[sxName] = newVx;
       }
       if (syName && viewVars[syName] !== undefined) {
-        viewVars[syName] = newVy;
         patch[syName] = newVy;
       }
     }
 
     if (Object.keys(patch).length > 0) {
-      proxy.setVars(patch);
+      setVars(patch);
     }
-    onRender();
     e.preventDefault();
   }
 
