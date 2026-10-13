@@ -267,7 +267,8 @@ export type ToWorker =
   | { type: 'setSpeed'; speed: number }
   | { type: 'setVars'; patch: Record<string, unknown> }
   | { type: 'exec'; code: string }
-  | { type: 'exportCSV' };
+  | { type: 'exportCSV' }
+  | { type: 'snapshot' };
 
 export type FromWorker =
   | { type: 'ready' }

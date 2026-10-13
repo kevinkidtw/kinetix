@@ -1,6 +1,10 @@
-import { useEffect, useRef } from 'react';
-import { X, Activity, Disc, Flame, TrendingDown, Orbit, Infinity as InfinityIcon, Workflow, Tv, Sun, Atom } from 'lucide-react';
-import EXAMPLES from '../../constants/examples';
+import { useEffect, useRef, useState } from 'react';
+import {
+  X, Activity, Disc, Flame, TrendingDown, Orbit, Infinity as InfinityIcon, Workflow, Tv, Sun, Atom,
+  Rotate3d, Wind, ArrowLeftRight, Cylinder, Compass, AudioWaveform, Spline, Waves, Radio, Rainbow,
+  Footprints, Thermometer, BatteryCharging, Magnet, CircleDot, Zap, Target, Droplet,
+} from 'lucide-react';
+import EXAMPLES, { EXAMPLE_CATEGORIES, type ExampleCategory } from '../../constants/examples';
 import { useSimulationStore } from '../../store/simulationStore';
 
 const DIFFICULTY_COLOR: Record<string, string> = {
@@ -24,6 +28,25 @@ const EXAMPLE_METADATA: Record<string, { icon: React.ComponentType<{ className?:
   crt:        { icon: Tv,           color: 'text-primary',          bg: 'bg-primary-soft/60 border-primary/20 shadow-xs' },
   snell:      { icon: Sun,          color: 'text-amber-hover',      bg: 'bg-amber-soft/60 border-amber/20 shadow-xs' },
   idealgas:   { icon: Atom,         color: 'text-teal',             bg: 'bg-teal-soft/60 border-teal/20 shadow-xs' },
+  threebody3d:{ icon: Rotate3d,     color: 'text-primary',          bg: 'bg-primary-soft/60 border-primary/20 shadow-xs' },
+  // 大學普物實驗
+  airdrag:       { icon: Wind,            color: 'text-teal',             bg: 'bg-teal-soft/60 border-teal/20 shadow-xs' },
+  collision1d:   { icon: ArrowLeftRight,  color: 'text-primary',          bg: 'bg-primary-soft/60 border-primary/20 shadow-xs' },
+  rolling:       { icon: Cylinder,        color: 'text-amber-hover',      bg: 'bg-amber-soft/60 border-amber/20 shadow-xs' },
+  foucault:      { icon: Compass,         color: 'text-pastel-world-ink', bg: 'bg-pastel-world/60 border-pastel-world-ink/20 shadow-xs' },
+  resonance:     { icon: AudioWaveform,   color: 'text-danger',           bg: 'bg-danger-soft/60 border-danger/20 shadow-xs' },
+  coupled:       { icon: Spline,          color: 'text-primary',          bg: 'bg-primary-soft/60 border-primary/20 shadow-xs' },
+  standingwave:  { icon: Waves,           color: 'text-teal',             bg: 'bg-teal-soft/60 border-teal/20 shadow-xs' },
+  doppler:       { icon: Radio,           color: 'text-amber-hover',      bg: 'bg-amber-soft/60 border-amber/20 shadow-xs' },
+  doubleslit:    { icon: Rainbow,         color: 'text-primary',          bg: 'bg-primary-soft/60 border-primary/20 shadow-xs' },
+  brownian:      { icon: Footprints,      color: 'text-pastel-world-ink', bg: 'bg-pastel-world/60 border-pastel-world-ink/20 shadow-xs' },
+  heatconduction:{ icon: Thermometer,     color: 'text-danger',           bg: 'bg-danger-soft/60 border-danger/20 shadow-xs' },
+  rccircuit:     { icon: BatteryCharging, color: 'text-teal',             bg: 'bg-teal-soft/60 border-teal/20 shadow-xs' },
+  efield:        { icon: CircleDot,       color: 'text-danger',           bg: 'bg-danger-soft/60 border-danger/20 shadow-xs' },
+  emratio:       { icon: Magnet,          color: 'text-primary',          bg: 'bg-primary-soft/60 border-primary/20 shadow-xs' },
+  induction:     { icon: Zap,             color: 'text-amber-hover',      bg: 'bg-amber-soft/60 border-amber/20 shadow-xs' },
+  rutherford:    { icon: Target,          color: 'text-danger',           bg: 'bg-danger-soft/60 border-danger/20 shadow-xs' },
+  millikan:      { icon: Droplet,         color: 'text-primary',          bg: 'bg-primary-soft/60 border-primary/20 shadow-xs' },
 };
 
 interface Props {
@@ -33,6 +56,7 @@ interface Props {
 export default function ExamplesModal({ onClose }: Props) {
   const store = useSimulationStore();
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [category, setCategory] = useState<ExampleCategory | 'all'>('all');
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -43,8 +67,8 @@ export default function ExamplesModal({ onClose }: Props) {
   const load = (exId: string) => {
     const ex = EXAMPLES.find((e) => e.id === exId);
     if (!ex) return;
-    const { id: _id, listDescription: _ldesc, difficulty: _diff, ...state } = ex as unknown as Record<string, unknown>;
-    void _id; void _ldesc; void _diff;
+    const { id: _id, listDescription: _ldesc, difficulty: _diff, category: _cat, ...state } = ex as unknown as Record<string, unknown>;
+    void _id; void _ldesc; void _diff; void _cat;
     store.loadState(state as unknown as Parameters<typeof store.loadState>[0]);
     onClose();
   };
@@ -55,7 +79,7 @@ export default function ExamplesModal({ onClose }: Props) {
       className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-xs flex items-center justify-center p-4"
       onMouseDown={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="bg-card border border-line rounded-card shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="bg-card border border-line rounded-card shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-line bg-paper flex-shrink-0">
           <div>
@@ -63,18 +87,40 @@ export default function ExamplesModal({ onClose }: Props) {
               <Orbit className="w-5 h-5 text-primary animate-spin-slow" />
               物理科學範例庫
             </h2>
-            <p className="text-ink-muted text-xs mt-0.5">選擇頂尖科學模擬範例以載入當前工作區</p>
+            <p className="text-ink-muted text-xs mt-0.5">共 {EXAMPLES.length} 個範例，每個皆附完整實驗講義（預報、步驟、探究問題、延伸閱讀）</p>
           </div>
           <button onClick={onClose} className="text-ink-muted hover:text-ink transition-colors p-1.5 hover:bg-paper rounded-control cursor-pointer" title="關閉">
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Category filter */}
+        <div className="flex flex-wrap gap-1.5 px-5 py-3 border-b border-line bg-paper/40 flex-shrink-0">
+          {(['all', ...EXAMPLE_CATEGORIES] as const).map((cat) => {
+            const count = cat === 'all' ? EXAMPLES.length : EXAMPLES.filter((ex) => ex.category === cat).length;
+            const active = category === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`text-xs px-2.5 py-1 rounded-control border transition-colors cursor-pointer ${
+                  active
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-card text-ink-muted border-line hover:border-primary hover:text-primary'
+                }`}
+              >
+                {cat === 'all' ? '全部' : cat}
+                <span className="ml-1 opacity-70 font-mono">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Example cards grouped by difficulty */}
         <div className="overflow-y-auto flex-1 p-5 space-y-5 bg-card">
           {DIFFICULTY_LEVELS.map((level) => {
             const group = [...EXAMPLES]
-              .filter((ex) => ex.difficulty === level)
+              .filter((ex) => ex.difficulty === level && (category === 'all' || ex.category === category))
               .sort((a, b) => (DIFFICULTY_ORDER[a.difficulty] ?? 9) - (DIFFICULTY_ORDER[b.difficulty] ?? 9));
             if (group.length === 0) return null;
             return (
@@ -103,6 +149,7 @@ export default function ExamplesModal({ onClose }: Props) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-ink font-bold text-sm group-hover:text-primary transition-colors">{ex.info.title}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-control border border-line text-ink-muted">{ex.category}</span>
                         </div>
                         <p className="text-ink-muted text-xs leading-relaxed">{ex.listDescription}</p>
                         <div className="flex gap-4 mt-2">

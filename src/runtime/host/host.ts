@@ -48,6 +48,7 @@ declare global {
     simExportCSV?: () => void;
     simSetSpeed?: (s: number) => void;
     _simRender?: () => void;
+    _simSetVars?: (patch: Record<string, unknown>) => void;
   }
 }
 
@@ -201,7 +202,8 @@ export async function startHost(): Promise<void> {
       toPixLen: (l: number) => number,
       W: number,
       H: number,
-      drawVF: unknown
+      drawVF: unknown,
+      setVars: (patch: Record<string, unknown>) => void
     ) => void
   >();
 
@@ -227,6 +229,7 @@ export async function startHost(): Promise<void> {
           'W',
           'H',
           'drawVectorField',
+          'setVars',
           el.properties.Code || ''
         ) as (
           ctx: CanvasRenderingContext2D,
@@ -236,7 +239,8 @@ export async function startHost(): Promise<void> {
           toPixLen: (l: number) => number,
           W: number,
           H: number,
-          drawVF: unknown
+          drawVF: unknown,
+          setVars: (patch: Record<string, unknown>) => void
         ) => void;
         customDrawFns.set(el.id, fn);
       } catch (err) {
@@ -333,7 +337,8 @@ export async function startHost(): Promise<void> {
                 helpers.toPixLen,
                 helpers.W,
                 helpers.H,
-                vf
+                vf,
+                setViewVars
               );
             } catch (err) {
               console.warn(`[EjsS Host] CustomDraw error:`, err);
@@ -361,6 +366,10 @@ export async function startHost(): Promise<void> {
   // 8. Snapshot processing
   function processSnapshot(snapshot: EngineSnapshot) {
     Object.assign(viewVars, snapshot.vars);
+    if (viewPatchInFlight) {
+      Object.assign(viewVars, viewPatchInFlight);
+      viewPatchInFlight = null;
+    }
 
     // Process sample deltas
     for (const [channelId, delta] of Object.entries(snapshot.samples)) {
@@ -404,9 +413,14 @@ export async function startHost(): Promise<void> {
     onReset: () => doReset(),
     onStep: () => doStep(),
     onRender: () => renderAll(),
+    onSetVars: (patch: Record<string, unknown>) => setViewVars(patch),
+    onExec: (code: string) => {
+      proxy.exec(code);
+      refreshWhilePaused();
+    },
   };
 
-  controlsManager.bind(model.viewElements, proxy, controlActions);
+  controlsManager.bind(model.viewElements, controlActions);
 
   drawingPanels.forEach((panel) => {
     setupDragHandler({
@@ -414,8 +428,7 @@ export async function startHost(): Promise<void> {
       elements: model!.viewElements,
       viewVars,
       compiledExprs,
-      proxy,
-      onRender: () => renderAll(),
+      setVars: (patch) => setViewVars(patch),
     });
   });
 
@@ -432,6 +445,56 @@ export async function startHost(): Promise<void> {
     stepsPerSec: 0,
     realtimeRatio: 1,
   };
+
+  // Variables changed from the view side (mouse drag, sliders, CustomDraw
+  // interaction). The engine owns the authoritative copy, so every patch must
+  // reach it; otherwise the next snapshot silently overwrites the change. A
+  // snapshot from an advance() already in flight was taken before the engine
+  // saw the patch, so the patch is kept and re-applied on top of it.
+  let viewPatchInFlight: Record<string, unknown> | null = null;
+  let renderQueued = false;
+  let isRefreshInFlight = false;
+
+  function requestRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => {
+      renderQueued = false;
+      renderAll();
+    });
+  }
+
+  function setViewVars(patch: Record<string, unknown>) {
+    Object.assign(viewVars, patch);
+    proxy.setVars(patch);
+    if (isAdvanceInFlight || isRefreshInFlight) {
+      viewPatchInFlight = Object.assign(viewPatchInFlight ?? {}, patch);
+    }
+    requestRender();
+    refreshWhilePaused();
+  }
+
+  // While paused nothing pulls snapshots, so values the engine derives from a
+  // patch (constraint pages, button actions) would stay stale until the next
+  // play. Pull one snapshot; repeat if more patches arrived meanwhile.
+  function refreshWhilePaused() {
+    if (running || isRefreshInFlight) return;
+    isRefreshInFlight = true;
+    proxy
+      .snapshot()
+      .then((snapshot) => {
+        isRefreshInFlight = false;
+        if (running) return;
+        const hadLatePatch = viewPatchInFlight !== null;
+        processSnapshot(snapshot);
+        requestRender();
+        if (hadLatePatch) refreshWhilePaused();
+      })
+      .catch((err) => {
+        isRefreshInFlight = false;
+        console.error('[EjsS Host] snapshot error:', err);
+      });
+  }
 
   function loop(ts: number) {
     if (lastTs === null) lastTs = ts;
@@ -504,6 +567,7 @@ export async function startHost(): Promise<void> {
       }
     });
 
+    viewPatchInFlight = null;
     const snapshot = await proxy.reset();
     processSnapshot(snapshot);
     renderAll();
@@ -554,9 +618,7 @@ export async function startHost(): Promise<void> {
       if (data.type === 'ejss:setSpeed') {
         proxy.setSpeed(data.speed);
       } else if (data.type === 'ejss:setVars') {
-        Object.assign(viewVars, data.patch);
-        proxy.setVars(data.patch);
-        renderAll();
+        setViewVars(data.patch);
       }
     }
   });
@@ -578,6 +640,7 @@ export async function startHost(): Promise<void> {
     URL.revokeObjectURL(url);
   };
   window._simRender = renderAll;
+  window._simSetVars = setViewVars;
 
   // 14. Responsive scaling for High-DPI screens
   function resizeAll() {
