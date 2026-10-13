@@ -15,6 +15,13 @@ export interface ControlsManager {
   update(viewVars: VarBag): void;
 }
 
+/** Decimal places that resolve a slider's step (0.005 → 3, 0.1 → 1, 5 → 0). */
+function sliderDecimals(step: string | undefined): number {
+  const s = parseFloat(step ?? '');
+  if (!(s > 0)) return 2;
+  return Math.min(4, Math.max(0, Math.ceil(-Math.log10(s) - 1e-9)));
+}
+
 export function createControlsManager(
   compiledExprs: Map<string, CompiledExpr>
 ): ControlsManager {
@@ -53,7 +60,7 @@ export function createControlsManager(
           inp.addEventListener('input', () => {
             const num = parseFloat(inp.value);
             if (valEl) {
-              valEl.textContent = num.toFixed(2);
+              valEl.textContent = num.toFixed(sliderDecimals(p.Step));
             }
             actions.onSetVars({ [vn]: num });
           });
@@ -111,7 +118,7 @@ export function createControlsManager(
             const currentVal = Number(viewVars[vn]);
             inp.value = String(currentVal);
             if (valEl) {
-              valEl.textContent = currentVal.toFixed(2);
+              valEl.textContent = currentVal.toFixed(sliderDecimals(p.Step));
             }
           }
         }

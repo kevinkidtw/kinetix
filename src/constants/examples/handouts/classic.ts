@@ -4,7 +4,7 @@
  * 撰寫慣例：
  * - 一律使用 String.raw，LaTeX 反斜線可直接書寫（\frac、\theta）。
  * - 講義先經 marked 轉 HTML 再交給 KaTeX，因此數學式內避免 Markdown 會吃掉的跳脫字元
- *   （\, \; \{ \} \\ 以及 * ~），小於／大於請寫成 \lt、\gt。
+ *   （\  \; \{ \} \\ 以及 * ~），小於／大於請寫成 \lt、\gt。
  * - 統一章節：實驗目的 → 課前預報 → 實驗原理 → 模擬器操作 → 實驗步驟與數據記錄
  *   → 實驗探究問題 → 誤差與模型限制 → 延伸挑戰 → 延伸閱讀。
  */
@@ -108,7 +108,7 @@ $$ E = \frac{1}{2}mv^2 + \frac{1}{2}kx^2 = \frac{1}{2}kA^2 = \text{常數} $$
 
 ## 八、延伸挑戰
 
-1. 在 ODE 中加入阻尼項 $-b\,v_x/m$，觀察能量如何衰減（可與「阻尼振盪」範例對照）。
+1. 在 ODE 中加入阻尼項 $-b\ v_x/m$，觀察能量如何衰減（可與「阻尼振盪」範例對照）。
 2. 新增一個 PlottingPanel，X 軸設為 **x**、Y 軸設為 **vx**，即時畫出相空間軌跡。
 3. 把回復力改為 $F = -kx - \beta x^3$（Duffing 振子），週期還與振幅無關嗎？
 
@@ -152,7 +152,7 @@ $$ T_0 = 2\pi\sqrt{\frac{L}{g}} $$
 
 ### 3. 大角度的精確週期
 利用能量守恆可得精確週期（$K$ 為第一類完全橢圓積分）：
-$$ T = 4\sqrt{\frac{L}{g}}\ K\!\left(\sin\frac{\theta_0}{2}\right) $$
+$$ T = 4\sqrt{\frac{L}{g}}\ K\left(\sin\frac{\theta_0}{2}\right) $$
 展開成級數：
 $$ T \approx T_0\left(1 + \frac{1}{16}\theta_0^2 + \frac{11}{3072}\theta_0^4 + \cdots\right) $$
 擺角越大，週期越長；當 $\theta_0 \to \pi$（倒立）時週期趨近無限大。
@@ -215,7 +215,7 @@ $$ T \approx T_0\left(1 + \frac{1}{16}\theta_0^2 + \frac{11}{3072}\theta_0^4 + \
 
 ## 八、延伸挑戰
 
-1. 加入阻尼項 $-b\,\omega$，觀察大角度擺動衰減時週期如何逐漸縮短。
+1. 加入阻尼項 $-b\ \omega$，觀察大角度擺動衰減時週期如何逐漸縮短。
 2. 同時模擬一個用 $-(g/L)\theta$（線性化）的擺，與真實擺並排比較相位如何逐漸錯開。
 3. 改為驅動擺 $\ddot\theta = -(g/L)\sin\theta - b\dot\theta + A\cos(\Omega t)$，探索混沌運動。
 
@@ -307,7 +307,7 @@ $$ \frac{h_{n+1}}{h_n} = e^2 $$
 
 ## 八、延伸挑戰
 
-1. 加入二次阻力 $-c\,v\,\vec v$，比較有無空氣阻力的軌跡。
+1. 加入二次阻力 $-c\ v\ \vec v$，比較有無空氣阻力的軌跡。
 2. 加入一面垂直牆壁，讓球在牆與地面之間反彈。
 3. 以事件偵測（精確求出 $y = -3.5$ 的時刻）改寫碰撞，比較高度比的精確度。
 
@@ -410,7 +410,7 @@ $$ \delta = \ln\frac{x_n}{x_{n+1}} = \gamma T_d $$
 ## 八、延伸挑戰
 
 1. 新增 PlottingPanel 同時畫出 $x$ 與能量 $E$，觀察能量呈「階梯狀」下降。
-2. 把阻尼改為庫侖摩擦 $-\mu mg\,\mathrm{sign}(v)$，比較峰值包絡線的形狀。
+2. 把阻尼改為庫侖摩擦 $-\mu mg\ \mathrm{sign}(v)$，比較峰值包絡線的形狀。
 3. 加入週期性外力，進入「受迫振動與共振」範例的主題。
 
 ## 九、延伸閱讀
@@ -443,7 +443,7 @@ const orbit = String.raw`# 🪐 行星軌道：驗證克卜勒三大定律實驗
 ## 三、實驗原理
 
 ### 1. 運動方程
-$$ \ddot{x} = -\frac{GM\,x}{r^3}, \qquad \ddot{y} = -\frac{GM\,y}{r^3}, \qquad r = \sqrt{x^2 + y^2} $$
+$$ \ddot{x} = -\frac{GM\ x}{r^3}, \qquad \ddot{y} = -\frac{GM\ y}{r^3}, \qquad r = \sqrt{x^2 + y^2} $$
 
 ### 2. 守恆量
 - 角動量（每單位質量）：$\ell = x v_y - y v_x$
@@ -538,7 +538,7 @@ const threebody = String.raw`# ♾️ 三體問題：8 字形週期軌道實驗�
 ## 三、實驗原理
 
 ### 1. 運動方程
-$$ \ddot{\mathbf r}_i = \sum_{j \neq i} \frac{G m_j (\mathbf r_j - \mathbf r_i)}{|\mathbf r_j - \mathbf r_i|^3}, \qquad i = 1, 2, 3 $$
+$$ \frac{d^2\mathbf r_i}{dt^2} = \sum_{j \neq i} \frac{G m_j (\mathbf r_j - \mathbf r_i)}{\lvert\mathbf r_j - \mathbf r_i\rvert^3}, \qquad i = 1, 2, 3 $$
 共有 12 個一階微分方程（二維）。
 
 ### 2. 守恆量
