@@ -5,6 +5,7 @@ import {
   RotateCcw,
   StepForward,
   Download,
+  ExternalLink,
   AlertTriangle,
   Cpu,
   Gauge,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useSimulationStore } from '../../store/simulationStore';
 import { buildPreviewHTML, computeSimBBox } from '../../utils/simulationRunner';
+import { openStagePopup, refreshStagePopup, type StagePopupWindow } from '../../utils/stagePopup';
 import type { Diagnostic, PerfStats } from '../../runtime/core/types';
 
 export default function StagePanel() {
@@ -44,6 +46,9 @@ export default function StagePanel() {
 
   // Reads the store directly so that the callback stays stable: selecting an
   // element or editing the handout must not rebuild (and restart) the preview.
+  // Pop-out window showing only the stage (for projecting in class).
+  const popupRef = useRef<StagePopupWindow | null>(null);
+
   const buildAndLoad = useCallback(() => {
     const s = useSimulationStore.getState();
     const html = buildPreviewHTML({
@@ -56,6 +61,7 @@ export default function StagePanel() {
       viewElements: s.viewElements,
       isLocked: s.isLocked,
     });
+    refreshStagePopup(popupRef.current, html, s.info.title, computeSimBBox(s.viewElements));
     if (iframeRef.current) {
       iframeRef.current.srcdoc = html;
       setLoaded(true);
@@ -108,6 +114,23 @@ export default function StagePanel() {
     setPicking(on);
     iframeRef.current?.contentWindow?.postMessage({ type: 'ejss:pickMode', on }, '*');
   }, []);
+  const handlePopout = () => {
+    const s = useSimulationStore.getState();
+    const html = buildPreviewHTML({
+      info: s.info,
+      description: s.description,
+      variables: s.variables,
+      odePages: s.odePages,
+      constraintPages: s.constraintPages,
+      initPages: s.initPages,
+      viewElements: s.viewElements,
+      isLocked: s.isLocked,
+    });
+    const win = openStagePopup(popupRef.current, html, s.info.title, computeSimBBox(s.viewElements));
+    if (!win) alert('瀏覽器封鎖了彈出視窗，請允許此網站開啟彈出式視窗後再試一次。');
+    popupRef.current = win;
+  };
+
   const togglePicking = () => setPickMode(!pickingRef.current);
 
   // Esc ends pick mode (clicks in the preview keep keyboard focus out here).
@@ -290,6 +313,15 @@ export default function StagePanel() {
             className="flex items-center gap-1 bg-[#2B2D31] hover:bg-[#1C1E22] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed text-white rounded-[10px] px-2 py-1 text-xs font-bold transition-all active:scale-[0.98] shadow-sm cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handlePopout}
+            disabled={!hasContent}
+            title="在獨立視窗開啟模擬舞台（只有模擬畫面，方便上課投影）"
+            aria-label="彈出視窗"
+            className="flex items-center gap-1 bg-white border border-[#E5E1D8] hover:bg-[#FAF8F3] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed text-[#2B2D31] rounded-[10px] px-2.5 py-1 text-xs font-semibold transition-all active:scale-[0.98] shadow-sm cursor-pointer"
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> <span className="hidden sm:inline">彈出視窗</span>
           </button>
           <button
             onClick={() => sendMsg('exportCSV')}
